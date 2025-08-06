@@ -1,18 +1,17 @@
 <div align="center">
 
-  <!-- ** 請將 [YOUR LOGO HERE] 替換成你的 Logo 圖片連結 ** -->
+  
   <img src="[YOUR LOGO HERE]" alt="Fleeditto Logo" width="200"/>
 
 # Fleeditto
 
 **The Capital-Efficient Fair Launchpad & Liquidity Engine on Aptos.**
 
-  <!-- ** 徽章 (Badges) - 你可以根據你的 CI/CD, 授權等情況修改 ** -->
+  
   <p>
     <img alt="License" src="https://img.shields.io/badge/License-MIT-blue.svg"/>
     <img alt="Aptos" src="https://img.shields.io/badge/Aptos-Move-orange"/>
     <img alt="Hackathon" src="https://img.shields.io/badge/CTRL+MOVE%20Hackathon-DeFi%20Track-brightgreen"/>
-    <a href="[LINK TO YOUR DISCORD]"><img alt="Discord" src="https://img.shields.io/discord/YOUR_SERVER_ID?color=7289DA&label=Discord&logo=discord&logoColor=white"/></a>
   </p>
 </div>
 

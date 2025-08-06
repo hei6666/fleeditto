@@ -1,15 +1,23 @@
 [package]
 name = "fleeditto"
 version = "1.0.0"
-authors = []
+authors = ["hei"]
 
 [addresses]
+#hyperion
+dex_contract="0x123"
 
-[dev-addresses]
+
+#fleeditto
+fleeditto="0x987"
+
 
 [dependencies.AptosFramework]
 git = "https://github.com/aptos-labs/aptos-framework.git"
 rev = "mainnet"
 subdir = "aptos-framework"
-
+[dependencies.dex]
+local= "simulate/hyperion"
+[dependencies.ThalaSwapV2]
+local="simulate/thala"
 [dev-dependencies]
