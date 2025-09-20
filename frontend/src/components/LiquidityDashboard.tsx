@@ -21,7 +21,8 @@ import { PendingPositions } from './PendingPositions';
 import { UserPositions } from './UserPositions';
 import { Button } from './ui/button';
 import { useHyperionSDK ,} from './HyperionSDKProvider';
-import {priceToTick,tickToPrice} from "@hyperionxyz/sdk"
+import {priceToTick,tickToPrice} from "@hyperionxyz/sdk";
+import { useLanguage } from '../contexts/LanguageContext';
 export function LiquidityDashboard() {
   const { account,connected,signAndSubmitTransaction } = useWallet();
   const { state } = useAppContext();
@@ -29,6 +30,7 @@ export function LiquidityDashboard() {
   const { aptos, currentNetwork } = useAptosClient();
   const sdk = useHyperionSDK();
   const { checkSufficientBalance } = useAvailableBalances();
+  const { t } = useLanguage();
 
   // Helper function to get Aptos Explorer URL
   const getExplorerUrl = (txHash: string) => {
@@ -959,48 +961,55 @@ export function LiquidityDashboard() {
         {/* Main Dashboard */}
         {connected && (
           <div className="space-y-8">
-          {/* DEX Selection */}
-          <DEXSelector
-            selectedDEX={state.selectedDex}
-            onDEXSelect={actions.setSelectedDex}
-          />
+          {/* Step 1: DEX Selection */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 bg-gradient-to-r from-teal-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-sm">1</div>
+              <h2 className="text-xl font-semibold text-white">{t('step.select_exchange')}</h2>
+            </div>
+            <DEXSelector
+              selectedDEX={state.selectedDex}
+              onDEXSelect={actions.setSelectedDex}
+            />
+          </motion.div>
 
-          
-
-          {/* Token Configuration */}
+          {/* Step 2: Token Pair Selection */}
           {state.selectedDex && (
             <motion.div
-              className="space-y-6"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
             >
-              {/* Token Selection and Configuration */}
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 bg-gradient-to-r from-teal-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-sm">2</div>
+                <h2 className="text-xl font-semibold text-white">{t('step.select_pair')}</h2>
+              </div>
               <div className="glass glass-hover p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Send className="w-5 h-5 text-teal-400" />
                   <h3 className="text-lg font-semibold text-white font-inter">
-                    代幣配置
+                    {t('token.config_title')}
                   </h3>
                 </div>
                 <p className="text-sm text-white/60 mb-6">
-                  先設定代幣地址，然後選擇要輸入數量的代幣
+                  {t('token.config_desc')}
                 </p>
 
-                {/* Smart Token Configuration with Liquidity Calculation */}
+                {/* Token Pair Selection - Address Only */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                   <div>
                     <h4 className="text-md font-medium text-white mb-2">Base Token</h4>
                     <ConnectedTokenInput
                       tokenType="A"
                       label="Base Token"
-                      isPrimaryInput={selectedInputToken === 'A'}
-                      isCalculating={selectedInputToken !== 'A' && isCalculating}
-                      onPrimaryInputChange={(isPrimary) => {
-                        if (isPrimary) {
-                          setSelectedInputToken('A');
-                        }
-                      }}
+                      addressOnly={true}
+                      isPrimaryInput={false}
+                      isCalculating={false}
+                      onPrimaryInputChange={() => {}}
                     />
                   </div>
                   <div>
@@ -1008,220 +1017,298 @@ export function LiquidityDashboard() {
                     <ConnectedTokenInput
                       tokenType="B"
                       label="Quote Token"
-                      isPrimaryInput={selectedInputToken === 'B'}
-                      isCalculating={selectedInputToken !== 'B' && isCalculating}
-                      onPrimaryInputChange={(isPrimary) => {
-                        if (isPrimary) {
-                          setSelectedInputToken('B');
-                        }
-                      }}
+                      addressOnly={true}
+                      isPrimaryInput={false}
+                      isCalculating={false}
+                      onPrimaryInputChange={() => {}}
                     />
                   </div>
                 </div>
 
-                {/* Calculation Status */}
+                {/* Token Selection Status */}
                 {state.tokenA.metadata && state.tokenB.metadata && (
-                  <div className="space-y-4">
-                    {/* Debug Information */}
-                    <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-xs">
-                      <div className="text-blue-400 mb-1">🔍 Debug Info:</div>
-                      <div className="text-white/60 space-y-1">
-                        <div>Token A: {state.tokenA.metadata ? '✅' : '❌'} {state.tokenA.metadata?.symbol}</div>
-                        <div>Token B: {state.tokenB.metadata ? '✅' : '❌'} {state.tokenB.metadata?.symbol}</div>
-                        <div>Fee Tier: {(state.feeTier !== null && state.feeTier !== undefined) ? '✅' : '❌'} {state.feeTier}</div>
-                        <div>Min Price: {state.minPrice ? '✅' : '❌'} {state.minPrice}</div>
-                        <div>Max Price: {state.maxPrice ? '✅' : '❌'} {state.maxPrice}</div>
-                        <div>Current Price: {state.currentPrice ? '✅' : '❌'} {state.currentPrice}</div>
-                        <div>Pool Current Tick: {poolCurrentTick !== null ? '✅' : '❌'} {poolCurrentTick}</div>
-                        <div>Pool Current Price: {poolCurrentPrice !== null ? '✅' : '❌'} {poolCurrentPrice}</div>
-                        <div>Can Calculate: {canCalculate() ? '✅' : '❌'}</div>
-                      </div>
+                  <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-xl">
+                    <div className="text-sm text-green-400 mb-1">✅ {t('token.pair_selected')}</div>
+                    <div className="text-xs text-white/60">
+                      {state.tokenA.metadata.symbol} / {state.tokenB.metadata.symbol}
                     </div>
-
-                    {calculationError && (
-                      <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg p-3">
-                        ⚠️ {calculationError}
-                      </div>
-                    )}
-
-                    {!calculationError && (inputAmount || calculatedAmount) && (
-                      <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-xl">
-                        <div className="text-sm text-green-400 mb-1">✅ Liquidity Calculation Complete</div>
-                        <div className="text-xs text-white/60">
-                          Input  : {selectedInputToken === 'A' ? inputAmount || '0' : calculatedAmount || '0'} {state.tokenA.metadata.symbol}
-                           {" "}& Input  : {selectedInputToken === 'B' ? inputAmount || '0' : calculatedAmount || '0'} {state.tokenB.metadata.symbol}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* APR Information Display */}
-                    {(() => {
-                      console.log('APR display conditions:', {
-                        selectedDex: state.selectedDex,
-                        poolState: state.poolState,
-                        aprData: !!aprData,
-                        isLoadingAPR
-                      });
-                      return null;
-                    })()}
-                    {state.selectedDex === 'hyperion' && state.poolState === 'exists' && (
-                      <div className="p-4 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-xl">
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="text-purple-400 text-sm font-semibold">📊 Expected APR</span>
-                          {isLoadingAPR && (
-                            <div className="w-4 h-4 border-2 border-purple-400/20 border-t-purple-400 rounded-full animate-spin" />
-                          )}
-                        </div>
-
-                        {aprError && (
-                          <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg p-2 mb-2">
-                            ⚠️ {aprError}
-                          </div>
-                        )}
-
-                        {aprData && !isLoadingAPR ? (
-                          <div className="grid grid-cols-2 gap-3 text-xs">
-                            <div className="bg-white/5 rounded-lg p-2">
-                              <div className="text-white/50 mb-1">Fee APR</div>
-                              <div className="text-green-400 font-bold text-sm">
-                                {(parseFloat(aprData.feeAPR) ).toFixed(2)}%
-                              </div>
-                            </div>
-                            <div className="bg-white/5 rounded-lg p-2">
-                              <div className="text-white/50 mb-1">Farm APR</div>
-                              <div className="text-blue-400 font-bold text-sm">
-                                {(parseFloat(aprData.farmAPR) ).toFixed(2)}%
-                              </div>
-                            </div>
-                            <div className="bg-white/5 rounded-lg p-2">
-                              <div className="text-white/50 mb-1">Total APR</div>
-                              <div className="text-purple-400 font-bold text-sm">
-                                {((parseFloat(aprData.feeAPR) + parseFloat(aprData.farmAPR)) ).toFixed(2)}%
-                              </div>
-                            </div>
-                            <div className="bg-white/5 rounded-lg p-2">
-                              <div className="text-white/50 mb-1">Daily Volume</div>
-                              <div className="text-teal-400 font-bold text-sm">
-                                ${parseFloat(aprData.dailyVolume).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                              </div>
-                            </div>
-                          </div>
-                        ) : !aprError && !aprData && !isLoadingAPR ? (
-                          <div className="text-xs text-white/50">
-                            Complete all fields to see expected APR for your position range
-                          </div>
-                        ) : isLoadingAPR ? (
-                          <div className="text-xs text-purple-400">
-                            Calculating expected APR for your position...
-                          </div>
-                        ) : null}
-                      </div>
-                    )}
                   </div>
                 )}
+
               </div>
             </motion.div>
           )}
 
-          {/* Fee Tier Selection - Only show for selected DEX */}
-          {state.selectedDex && (
-            <FeeTierSelector
-              selectedDex={state.selectedDex}
-              selectedFeeTier={state.feeTier}
-              onFeeTierSelect={actions.setFeeTier}
-              tokenX={state.tokenA.metadata?.address}
-              tokenY={state.tokenB.metadata?.address}
-            />
+          {/* Step 3: Fee Tier Selection */}
+          {state.selectedDex && state.tokenA.metadata && state.tokenB.metadata && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 bg-gradient-to-r from-teal-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-sm">3</div>
+                <h2 className="text-xl font-semibold text-white">{t('step.select_fee_tier')}</h2>
+              </div>
+              <FeeTierSelector
+                selectedDex={state.selectedDex}
+                selectedFeeTier={state.feeTier}
+                onFeeTierSelect={actions.setFeeTier}
+                tokenX={state.tokenA.metadata?.address}
+                tokenY={state.tokenB.metadata?.address}
+              />
+            </motion.div>
           )}
 
-            {/* Pool Status Card - Show for Hyperion after tokens are selected */}
-            {state.selectedDex === 'hyperion' && state.tokenA.metadata && state.tokenB.metadata && state.poolState === 'not_exists' && (
+          {/* Pool Status Card - Show for Hyperion when pool doesn't exist */}
+          {state.selectedDex === 'hyperion' && state.tokenA.metadata && state.tokenB.metadata && state.poolState === 'not_exists' && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+            >
               <PoolStatusCard
                 poolState={state.poolState}
                 poolStats={state.poolStats || null}
                 tokenASymbol={state.tokenA.metadata.symbol}
                 tokenBSymbol={state.tokenB.metadata.symbol}
               />
-            )}
+            </motion.div>
+          )}
 
-            {/* Price Chart and Range Selector */}
-            {state.tokenA.metadata && state.tokenB.metadata && state.currentPrice > 0 && (
-              <>
-                <LiquidityChart
-                  currentPrice={state.currentPrice}
-                  minPrice={state.minPrice}
-                  maxPrice={state.maxPrice}
-                  tokenASymbol={state.tokenA.metadata.symbol}
-                  tokenBSymbol={state.tokenB.metadata.symbol}
-                  feeTier={state.feeTier}
-                />
+          {/* Step 4: Liquidity Configuration (Price Range + Amount + APR) */}
+          {state.tokenA.metadata && state.tokenB.metadata && state.currentPrice > 0 && state.feeTier !== null && state.feeTier !== undefined && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 bg-gradient-to-r from-teal-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-sm">4</div>
+                <h2 className="text-xl font-semibold text-white">{t('step.configure_liquidity')}</h2>
+              </div>
 
-                <PriceRangeSelector
-                  currentPrice={state.currentPrice}
-                  minPrice={state.minPrice}
-                  maxPrice={state.maxPrice}
-                  onRangeChange={actions.setPriceRange}
-                  tokenASymbol={state.tokenA.metadata.symbol}
-                  tokenBSymbol={state.tokenB.metadata.symbol}
-                />
-
-              </>
-            )}
-
-            {/* Advanced Settings */}
-            {state.currentPrice > 0 && (
-              <motion.div
-                className="glass glass-hover p-6"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.4 }}
-              >
-                <div className="flex items-center gap-2 mb-4">
-                  <Settings className="w-5 h-5 text-teal-400" />
-                  <h3 className="text-lg font-semibold text-white font-inter">
-                    Advanced Settings
-                  </h3>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="glass glass-hover p-6">
+                <div className="space-y-8">
+                  {/* Price Range Configuration */}
                   <div>
-                    <label className="block text-sm text-white/70 mb-2">
-                      Slippage Tolerance (%)
-                    </label>
-                    <input
-                      type="number"
-                      value={slippageTolerance}
-                      onChange={(e) => setSlippageTolerance(parseFloat(e.target.value) || 0.5)}
-                      step="0.1"
-                      min="0.1"
-                      max="10"
-                      className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/40 backdrop-filter backdrop-blur-sm focus:outline-none focus:border-teal-400/50 transition-all duration-300"
-                    />
+                    <div className="flex items-center gap-2 mb-4">
+                      <Send className="w-5 h-5 text-teal-400" />
+                      <h3 className="text-lg font-semibold text-white font-inter">
+                        {t('price.range_title')}
+                      </h3>
+                    </div>
+                    <p className="text-sm text-white/60 mb-6">
+                      {t('price.range_desc')}
+                    </p>
+
+                    <div className="space-y-6">
+                      <LiquidityChart
+                        currentPrice={state.currentPrice}
+                        minPrice={state.minPrice}
+                        maxPrice={state.maxPrice}
+                        tokenASymbol={state.tokenA.metadata.symbol}
+                        tokenBSymbol={state.tokenB.metadata.symbol}
+                        feeTier={state.feeTier}
+                      />
+
+                      <PriceRangeSelector
+                        currentPrice={state.currentPrice}
+                        minPrice={state.minPrice}
+                        maxPrice={state.maxPrice}
+                        onRangeChange={actions.setPriceRange}
+                        tokenASymbol={state.tokenA.metadata.symbol}
+                        tokenBSymbol={state.tokenB.metadata.symbol}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Amount Input Section */}
+                  {state.minPrice > 0 && state.maxPrice > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-4">
+                        <Send className="w-5 h-5 text-teal-400" />
+                        <h3 className="text-lg font-semibold text-white font-inter">
+                          {t('amount.title')}
+                        </h3>
+                      </div>
+                      <p className="text-sm text-white/60 mb-6">
+                        {t('amount.desc')}
+                      </p>
+
+                      {/* Smart Token Input with Calculation - Amount Only */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <div>
+                          <h4 className="text-md font-medium text-white mb-2">
+                            {state.tokenA.metadata.symbol} {t('amount.amount')}
+                          </h4>
+                          <ConnectedTokenInput
+                            tokenType="A"
+                            label={state.tokenA.metadata.symbol}
+                            amountOnly={true}
+                            isPrimaryInput={selectedInputToken === 'A'}
+                            isCalculating={selectedInputToken !== 'A' && isCalculating}
+                            onPrimaryInputChange={(isPrimary) => {
+                              if (isPrimary) {
+                                setSelectedInputToken('A');
+                              }
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <h4 className="text-md font-medium text-white mb-2">
+                            {state.tokenB.metadata.symbol} {t('amount.amount')}
+                          </h4>
+                          <ConnectedTokenInput
+                            tokenType="B"
+                            label={state.tokenB.metadata.symbol}
+                            amountOnly={true}
+                            isPrimaryInput={selectedInputToken === 'B'}
+                            isCalculating={selectedInputToken !== 'B' && isCalculating}
+                            onPrimaryInputChange={(isPrimary) => {
+                              if (isPrimary) {
+                                setSelectedInputToken('B');
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Calculation Status */}
+                      <div className="space-y-4">
+                        {calculationError && (
+                          <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                            ⚠️ {calculationError}
+                          </div>
+                        )}
+
+                        {!calculationError && (inputAmount || calculatedAmount) && (
+                          <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-xl">
+                            <div className="text-sm text-green-400 mb-1">✅ {t('amount.calculation_complete')}</div>
+                            <div className="text-xs text-white/60">
+                              {state.tokenA.metadata.symbol}: {selectedInputToken === 'A' ? inputAmount || '0' : calculatedAmount || '0'}
+                              {" "} | {state.tokenB.metadata.symbol}: {selectedInputToken === 'B' ? inputAmount || '0' : calculatedAmount || '0'}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* APR Preview */}
+                  {state.selectedDex === 'hyperion' && state.poolState === 'exists' && state.minPrice > 0 && state.maxPrice > 0 && (inputAmount || calculatedAmount) && (
+                    <div className="p-6 bg-gradient-to-r from-purple-500/15 to-pink-500/15 border border-purple-500/30 rounded-xl">
+                      <div className="flex items-center gap-2 mb-4">
+                        <span className="text-purple-400 text-lg font-semibold">🎯 {t('apr.title')}</span>
+                        {isLoadingAPR && (
+                          <div className="w-4 h-4 border-2 border-purple-400/20 border-t-purple-400 rounded-full animate-spin" />
+                        )}
+                      </div>
+
+                      {aprError && (
+                        <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-4">
+                          ⚠️ {aprError}
+                        </div>
+                      )}
+
+                      {aprData && !isLoadingAPR ? (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="bg-white/10 rounded-lg p-4 text-center">
+                            <div className="text-white/70 text-sm mb-1">{t('apr.fee_apr')}</div>
+                            <div className="text-green-400 font-bold text-2xl">
+                              {(parseFloat(aprData.feeAPR)).toFixed(2)}%
+                            </div>
+                            <div className="text-white/50 text-xs">{t('apr.annual_return')}</div>
+                          </div>
+                          <div className="bg-white/10 rounded-lg p-4 text-center">
+                            <div className="text-white/70 text-sm mb-1">{t('apr.farm_apr')}</div>
+                            <div className="text-blue-400 font-bold text-2xl">
+                              {(parseFloat(aprData.farmAPR)).toFixed(2)}%
+                            </div>
+                            <div className="text-white/50 text-xs">{t('apr.annual_return')}</div>
+                          </div>
+                          <div className="bg-white/10 rounded-lg p-4 text-center">
+                            <div className="text-white/70 text-sm mb-1">{t('apr.total_apr')}</div>
+                            <div className="text-purple-400 font-bold text-3xl">
+                              {((parseFloat(aprData.feeAPR) + parseFloat(aprData.farmAPR))).toFixed(2)}%
+                            </div>
+                            <div className="text-white/50 text-xs">{t('apr.annual_return')}</div>
+                          </div>
+                        </div>
+                      ) : !aprError && !aprData && !isLoadingAPR ? (
+                        <div className="text-sm text-white/50 text-center py-4">
+                          {t('apr.input_amount_prompt')}
+                        </div>
+                      ) : isLoadingAPR ? (
+                        <div className="text-sm text-purple-400 text-center py-4">
+                          {t('apr.calculating')}
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Step 5: Advanced Settings & Submit */}
+          {isFormComplete && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 bg-gradient-to-r from-teal-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-sm">5</div>
+                <h2 className="text-xl font-semibold text-white">{t('step.advanced_submit')}</h2>
+              </div>
+
+              <div className="space-y-6">
+                {/* Advanced Settings */}
+                <div className="glass glass-hover p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Settings className="w-5 h-5 text-teal-400" />
+                    <h3 className="text-lg font-semibold text-white font-inter">
+                      {t('advanced.title')}
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm text-white/70 mb-2">
+                        {t('advanced.slippage')}
+                      </label>
+                      <input
+                        type="number"
+                        value={slippageTolerance}
+                        onChange={(e) => setSlippageTolerance(parseFloat(e.target.value) || 0.5)}
+                        step="0.1"
+                        min="0.1"
+                        max="10"
+                        className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/40 backdrop-filter backdrop-blur-sm focus:outline-none focus:border-teal-400/50 transition-all duration-300"
+                      />
+                    </div>
                   </div>
                 </div>
-              </motion.div>
-            )}
 
-            {/* Error Display */}
-            {state.error && (
-              <motion.div
-                className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-center gap-3"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-              >
-                <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-                <p className="text-red-400 text-sm">{state.error}</p>
-              </motion.div>
-            )}
+                {/* Submit Section */}
+                <div className="glass glass-hover p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Send className="w-5 h-5 text-teal-400" />
+                    <h3 className="text-lg font-semibold text-white font-inter">
+                      {t('submit.title')}
+                    </h3>
+                  </div>
 
-            {/* Submit Button */}
-            {isFormComplete && (
-              <motion.div
-                className="text-center"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.5 }}
-              >
+                  {/* Error Display */}
+                  {state.error && (
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-center gap-3 mb-4">
+                      <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+                      <p className="text-red-400 text-sm">{state.error}</p>
+                    </div>
+                  )}
+
+                  <div className="text-center">
                 <div className="flex gap-4 justify-center">
                   <div className="relative group">
                     <Button
@@ -1232,7 +1319,7 @@ export function LiquidityDashboard() {
                     >
                       <div className="flex items-center gap-2">
                         <Plus className="w-5 h-5" />
-                        <span>Add to Batch</span>
+                        <span>{t('submit.add_to_batch')}</span>
                       </div>
                     </Button>
 
@@ -1240,59 +1327,28 @@ export function LiquidityDashboard() {
                     {isFormComplete && !balanceCheck.hasSufficientBalance && (
                       <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-red-500/90 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50">
                         <div className="text-center">
-                          <div>Insufficient balance:</div>
+                          <div>{t('submit.insufficient_balance')}</div>
                           {!balanceCheck.hasEnoughTokenA && (
-                            <div>{state.tokenA.metadata?.symbol}: {balanceCheck.availableTokenA} available</div>
+                            <div>{state.tokenA.metadata?.symbol}: {balanceCheck.availableTokenA} {t('submit.available')}</div>
                           )}
                           {!balanceCheck.hasEnoughTokenB && (
-                            <div>{state.tokenB.metadata?.symbol}: {balanceCheck.availableTokenB} available</div>
+                            <div>{state.tokenB.metadata?.symbol}: {balanceCheck.availableTokenB} {t('submit.available')}</div>
                           )}
                         </div>
                         <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-red-500/90"></div>
                       </div>
                     )}
                   </div>
-                  {/* <div className="relative group">
-                      <Button
-                      onClick={handleSubmitTransaction}
-                      disabled={state.isSubmitting || !isFormComplete}
-                      size="lg"
-                      variant="outline"
-                      className="px-8 py-4 border-2 border-teal-500/50 text-teal-400 hover:bg-teal-500/10 font-semibold text-lg rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {state.isSubmitting ? (
-                          <div className="flex items-center gap-2">
-                            <div className="w-5 h-5 border-2 border-teal-400/20 border-t-teal-400 rounded-full animate-spin" />
-                            <span>Submitting...</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <Send className="w-5 h-5" />
-                            <span>Submit Now</span>
-                          </div>
-                        )}
-                      </Button>
-
-                    // {/* Insufficient balance tooltip */}
-                    {/* {isFormComplete && !balanceCheck.hasSufficientBalance && (
-                      <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-red-500/90 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50">
-                        <div className="text-center">
-                          <div>Insufficient balance:</div>
-                          {!balanceCheck.hasEnoughTokenA && (
-                            <div>{state.tokenA.metadata?.symbol}: {balanceCheck.availableTokenA} available</div>
-                          )}
-                          {!balanceCheck.hasEnoughTokenB && (
-                            <div>{state.tokenB.metadata?.symbol}: {balanceCheck.availableTokenB} available</div>
-                          )}
-                        </div>
-                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-red-500/90"></div>
-                      </div>
-                    )}
-                  </div> */} */
-                  
                 </div>
-              </motion.div>
-            )}
+
+                    <div className="mt-4 text-sm text-white/60 text-center">
+                      <p>{t('submit.batch_hint')}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
 
             {/* Transaction Success */}
             {state.transactionHash && (

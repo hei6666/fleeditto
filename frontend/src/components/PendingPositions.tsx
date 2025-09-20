@@ -9,10 +9,12 @@ import { useMultiTokenPrices } from '../hooks/useMultiTokenPrices';
 import { useMemo } from 'react';
 import { useWallet } from '@aptos-labs/wallet-adapter-react';
 import { priceToTick } from "@hyperionxyz/sdk";
+import { useLanguage } from '../contexts/LanguageContext';
 export function PendingPositions() {
   const {account,signAndSubmitTransaction}=useWallet();
   const { state } = useAppContext();
   const actions = useAppActions();
+  const { t } = useLanguage();
 
   // Extract all unique tokens from pending positions for price fetching
   const tokensForPricing = useMemo(() => {
@@ -243,9 +245,9 @@ export function PendingPositions() {
             <Package className="w-5 h-5 text-teal-400" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-white">Pending Positions</h3>
+            <h3 className="text-lg font-semibold text-white">{t('pending.title')}</h3>
             <p className="text-sm text-white/60">
-              {state.pendingPositions.length} position{state.pendingPositions.length !== 1 ? 's' : ''} ready
+              {state.pendingPositions.length} {state.pendingPositions.length === 1 ? t('pending.ready').split('|')[0] : t('pending.ready').split('|')[1]}
             </p>
           </div>
         </div>
@@ -255,7 +257,7 @@ export function PendingPositions() {
             onClick={handleClearAll}
             className="text-sm text-red-400 hover:text-red-300 transition-colors"
           >
-            Clear All
+            {t('pending.clear_all')}
           </button>
         )}
       </div>
@@ -263,7 +265,7 @@ export function PendingPositions() {
       {/* MEV Protection Badge */}
       <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-xl p-3 mb-6">
         <Shield className="w-4 h-4 text-green-400" />
-        <span className="text-sm text-green-400 font-medium">MEV Protected Batch Execution</span>
+        <span className="text-sm text-green-400 font-medium">{t('pending.mev_protected')}</span>
       </div>
 
       {/* Positions List */}
@@ -285,7 +287,7 @@ export function PendingPositions() {
                     {position.dex.toUpperCase()}
                   </span>
                   <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded-full">
-                    {getFeeTierPercentageFromIndex(position.feeTier)}%
+                    {t('pending.fee_tier')}: {getFeeTierPercentageFromIndex(position.feeTier)}%
                   </span>
                 
                 </div>
@@ -316,13 +318,13 @@ export function PendingPositions() {
               {/* Price Range */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-white/60">Price Range</span>
+                  <span className="text-white/60">{t('pending.price_range')}</span>
                   <span className="text-white/80">
                     {formatPrice(position.minPrice)} - {formatPrice(position.maxPrice)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-white/60">Current Price</span>
+                  <span className="text-white/60">{t('common.current_price')}</span>
                   <span className="text-teal-400">{formatPrice(position.currentPrice)}</span>
                 </div>
               </div>
@@ -332,19 +334,19 @@ export function PendingPositions() {
                 <div className="mt-3 pt-3 border-t border-white/10">
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="flex items-center justify-between">
-                      <span className="text-white/60">Fee APR</span>
+                      <span className="text-white/60">{t('apr.fee_apr')}</span>
                       <span className="text-green-400 font-semibold">
                         {position.aprData.feeAPR.toFixed(2)}%
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-white/60">Farm APR</span>
+                      <span className="text-white/60">{t('apr.farm_apr')}</span>
                       <span className="text-blue-400 font-semibold">
                         {position.aprData.farmAPR.toFixed(2)}%
                       </span>
                     </div>
                     <div className="flex items-center justify-between col-span-2">
-                      <span className="text-white/60">Total APR</span>
+                      <span className="text-white/60">{t('apr.total_apr')}</span>
                       <span className="text-purple-400 font-bold">
                         {position.aprData.totalAPR.toFixed(2)}%
                       </span>
@@ -359,8 +361,8 @@ export function PendingPositions() {
         {state.pendingPositions.length === 0 && (
           <div className="text-center py-8">
             <Plus className="w-12 h-12 text-white/20 mx-auto mb-3" />
-            <p className="text-white/40 text-sm">No pending positions</p>
-            <p className="text-white/30 text-xs">Configure liquidity and add to batch</p>
+            <p className="text-white/40 text-sm">{t('pending.no_positions')}</p>
+            <p className="text-white/30 text-xs">{t('pending.configure_prompt')}</p>
           </div>
         )}
       </div>
@@ -370,16 +372,16 @@ export function PendingPositions() {
         <div className="mt-6 pt-6 border-t border-white/10">
           <div className="space-y-2 mb-4">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-white/70">Total Positions</span>
+              <span className="text-white/70">{t('pending.total_positions')}</span>
               <span className="text-white">{state.pendingPositions.length}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-white/70">Estimated Value</span>
+              <span className="text-white/70">{t('pending.value')}</span>
               <span className="text-white">
                 {isPricesLoading ? (
                   <span className="flex items-center gap-2">
                     <div className="w-3 h-3 border border-white/20 border-t-white rounded-full animate-spin" />
-                    Loading...
+                    {t('common.loading')}
                   </span>
                 ) : (
                   `$${getTotalValue().toLocaleString()}`
@@ -387,7 +389,7 @@ export function PendingPositions() {
               </span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-white/70">Total APR</span>
+              <span className="text-white/70">{t('apr.total_apr')}</span>
               <span className="text-purple-400 font-semibold">
                 {isPricesLoading ? (
                   <span className="flex items-center gap-2">
@@ -399,7 +401,7 @@ export function PendingPositions() {
               </span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-white/70">Est. Annual Income</span>
+              <span className="text-white/70">{t('pending.annual_income')}</span>
               <span className="text-green-400 font-semibold">
                 {isPricesLoading ? (
                   <span className="flex items-center gap-2">
@@ -411,7 +413,7 @@ export function PendingPositions() {
               </span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-white/70">Gas Optimization</span>
+              <span className="text-white/70">{t('pending.gas_optimization')}</span>
               <span className="text-blue-400 flex items-center gap-1">
                 <Zap className="w-3 h-3" />
                 ~{Math.round((1 - 1 / state.pendingPositions.length) * 100)}% savings
@@ -428,12 +430,12 @@ export function PendingPositions() {
             {state.isSubmitting ? (
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                <span>Executing Batch...</span>
+                <span>{t('pending.executing')}</span>
               </div>
             ) : (
               <div className="flex items-center gap-2">
                 <DollarSign className="w-4 h-4" />
-                <span>Execute Batch ({state.pendingPositions.length})</span>
+                <span>{t('pending.execute_batch')} ({state.pendingPositions.length})</span>
               </div>
             )}
           </Button>

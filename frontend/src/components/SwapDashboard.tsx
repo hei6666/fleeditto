@@ -6,6 +6,7 @@ import { useWallet } from '@aptos-labs/wallet-adapter-react';
 import { Wallet, ArrowUpDown, Settings, AlertCircle, Shield, Zap, TrendingUp, ExternalLink } from 'lucide-react';
 
 import { useAppContext, useAppActions } from '../contexts/AppContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import { WalletConnection } from './WalletConnection';
 import { DEXSelector } from './DEXSelector';
 import { ConnectedTokenInput } from './ConnectedTokenInput';
@@ -17,12 +18,13 @@ import { initTappSDK } from '@tapp-exchange/sdk';
 import { Network } from '@aptos-labs/ts-sdk';
 
 export function SwapDashboard() {
- 
+
   const { wallet, connected, account, signAndSubmitTransaction } = useWallet();
   const { state } = useAppContext();
   const actions = useAppActions();
   const sdk = useHyperionSDK();
   const { currentNetwork } = useAptosClient();
+  const { t } = useLanguage();
 
   const [slippageTolerance, setSlippageTolerance] = useState(0.5);
   const [estimatedOutput, setEstimatedOutput] = useState('0');
@@ -430,28 +432,28 @@ export function SwapDashboard() {
               <Shield className="w-6 h-6 text-green-400" />
             </div>
             <div>
-              <h3 className="text-xl font-semibold text-white">MEV Protected Swaps</h3>
-              <p className="text-green-400 text-sm">Your transactions are protected from front-running and sandwich attacks</p>
+              <h3 className="text-xl font-semibold text-white">{t('swap.mev_protected')}</h3>
+              <p className="text-green-400 text-sm">{t('swap.mev_description')}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/30 rounded-full px-3 py-1">
             <Zap className="w-4 h-4 text-green-400" />
-            <span className="text-green-400 font-medium text-sm">Active Protection</span>
+            <span className="text-green-400 font-medium text-sm">{t('swap.active_protection')}</span>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="flex items-center gap-2 text-sm text-white/70">
             <TrendingUp className="w-4 h-4 text-teal-400" />
-            <span>Optimal Price Discovery</span>
+            <span>{t('swap.optimal_price')}</span>
           </div>
           <div className="flex items-center gap-2 text-sm text-white/70">
             <Shield className="w-4 h-4 text-green-400" />
-            <span>Front-Running Protection</span>
+            <span>{t('swap.front_running_protection')}</span>
           </div>
           <div className="flex items-center gap-2 text-sm text-white/70">
             <Zap className="w-4 h-4 text-yellow-400" />
-            <span>Gas Optimized</span>
+            <span>{t('swap.gas_optimized')}</span>
           </div>
         </div>
       </motion.div>
@@ -487,17 +489,17 @@ export function SwapDashboard() {
               transition={{ duration: 0.5, delay: 0.2 }}
             >
               <div className="text-center mb-6">
-                <h3 className="text-xl font-semibold text-white mb-2">Swap Tokens</h3>
-                <p className="text-sm text-white/50">Powered by Hyperion</p>
+                <h3 className="text-xl font-semibold text-white mb-2">{t('swap.title')}</h3>
+                <p className="text-sm text-white/50">{t('swap.powered_by')}</p>
               </div>
 
               <div className="space-y-4">
                 {/* From Token */}
                 <div className="space-y-2">
-                  <label className="text-sm text-white/70">From</label>
+                  <label className="text-sm text-white/70">{t('swap.from')}</label>
                   <ConnectedTokenInput
                     tokenType="A"
-                    label="You Pay"
+                    label={t('swap.you_pay')}
                   />
                 </div>
 
@@ -516,19 +518,19 @@ export function SwapDashboard() {
                 {/* To Token */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <label className="text-sm text-white/70">To</label>
+                    <label className="text-sm text-white/70">{t('swap.to')}</label>
                     {isCalculating && (
                       <div className="flex items-center gap-1">
                         <div className="w-3 h-3 border-2 border-teal-400/20 border-t-teal-400 rounded-full animate-spin" />
-                        <span className="text-xs text-teal-400">Calculating...</span>
+                        <span className="text-xs text-teal-400">{t('swap.calculating')}</span>
                       </div>
                     )}
                   </div>
                   <ConnectedTokenInput
                     tokenType="B"
-                    label="You Receive"
+                    label={t('swap.you_receive')}
                     readOnly={true}
-                    value={isCalculating ? 'Calculating...' : estimatedOutput}
+                    value={isCalculating ? t('swap.calculating') : estimatedOutput}
                   />
                 </div>
 
@@ -536,12 +538,12 @@ export function SwapDashboard() {
                 <div className="bg-white/5 rounded-xl p-4 space-y-4">
                   <div className="flex items-center gap-2 mb-3">
                     <Settings className="w-4 h-4 text-teal-400" />
-                    <span className="text-sm font-medium text-white/80">Settings</span>
+                    <span className="text-sm font-medium text-white/80">{t('swap.advanced_settings')}</span>
                   </div>
 
                   <div>
                     <label className="block text-sm text-white/70 mb-2">
-                      Slippage Tolerance (%)
+                      {t('swap.slippage')}
                     </label>
                     <div className="flex gap-2">
                       <div className="flex gap-1">
@@ -567,7 +569,7 @@ export function SwapDashboard() {
                         min="0.1"
                         max="10"
                         className="flex-1 px-3 py-2 bg-white/5 border border-white/20 rounded-lg text-white placeholder-white/40 backdrop-filter backdrop-blur-sm focus:outline-none focus:border-teal-400/50 transition-all duration-300 text-sm"
-                        placeholder="Custom"
+                        placeholder={t('swap.custom')}
                       />
                     </div>
                   </div>
@@ -577,28 +579,39 @@ export function SwapDashboard() {
                 {state.tokenA.metadata && state.tokenB.metadata && estimatedOutput && !isCalculating && (
                   <div className="bg-white/5 rounded-xl p-4 space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-white/70">Rate</span>
+                      <span className="text-white/70">{t('swap.rate')}</span>
                       <span className="text-white">
                         {state.tokenA.amount && parseFloat(state.tokenA.amount) > 0 ? (
                           <>1 {state.tokenA.metadata.symbol} = {(parseFloat(estimatedOutput) / parseFloat(state.tokenA.amount)).toFixed(6)} {state.tokenB.metadata.symbol}</>
                         ) : (
-                          'Enter amount to see rate'
+                          t('swap.enter_amount_rate')
                         )}
                       </span>
                     </div>
                     {poolRoute && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-white/70">Route</span>
-                        <span className="text-white/80 text-xs">
-                          Via Hyperion AMM
-                        </span>
+                        <span className="text-white/70">{t('swap.route')}</span>
+                        {state.selectedDex == "hyperion" && (
+                          <>
+                            <span className="text-white/80 text-xs">
+                              Via Hyperion AMM
+                            </span>
+                          </>
+                        )}
+                        {state.selectedDex == "tapp" && (
+                          <>
+                            <span className="text-white/80 text-xs">
+                              Via Tapp Exchange
+                            </span>
+                          </>
+                        )}
                       </div>
                     )}
                     <div className="flex justify-between text-sm">
-                      <span className="text-white/70">MEV Protection</span>
+                      <span className="text-white/70">{t('swap.mev_protection')}</span>
                       <span className="text-green-400 flex items-center gap-1">
                         <Shield className="w-3 h-3" />
-                        Enabled
+                        {t('swap.enabled')}
                       </span>
                     </div>
                   </div>
@@ -614,25 +627,25 @@ export function SwapDashboard() {
                   {state.isSubmitting ? (
                     <div className="flex items-center gap-2">
                       <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                      <span>Swapping...</span>
+                      <span>{t('swap.swapping')}</span>
                     </div>
                   ) : isCalculating ? (
                     <div className="flex items-center gap-2">
                       <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                      <span>Calculating...</span>
+                      <span>{t('swap.calculating')}</span>
                     </div>
                   ) : !state.tokenA.amount || parseFloat(state.tokenA.amount) <= 0 ? (
-                    <span>Enter an amount</span>
+                    <span>{t('swap.enter_amount')}</span>
                   ) : !state.tokenA.metadata || !state.tokenB.metadata ? (
-                    <span>Select tokens</span>
+                    <span>{t('swap.select_tokens')}</span>
                   ) : !poolRoute ? (
-                    <span>No route found</span>
+                    <span>{t('swap.no_route')}</span>
                   ) : !estimatedOutput || parseFloat(estimatedOutput) <= 0 ? (
-                    <span>Invalid amount</span>
+                    <span>{t('swap.invalid_amount')}</span>
                   ) : (
                     <div className="flex items-center gap-2">
                       <ArrowUpDown className="w-5 h-5" />
-                      <span>Swap Tokens</span>
+                      <span>{t('swap.swap_button')}</span>
                     </div>
                   )}
                 </Button>
@@ -659,13 +672,13 @@ export function SwapDashboard() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
             >
-              <div className="text-green-400 text-xl mb-2">✅ Swap Successful!</div>
+              <div className="text-green-400 text-xl mb-2">✅ {t('swap.success_title')}</div>
               <p className="text-white/70 text-sm mb-4">
-                Your tokens have been swapped successfully with MEV protection.
+                {t('swap.success_message')}
               </p>
 
               <div className="space-y-3">
-                <div className="text-sm text-white/70">Transaction Hash:</div>
+                <div className="text-sm text-white/70">{t('swap.transaction_hash')}:</div>
                 <div className="font-mono text-xs text-white/80 break-all mb-3">
                   {state.transactionHash}
                 </div>
@@ -676,7 +689,7 @@ export function SwapDashboard() {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-4 py-2 bg-teal-500/20 hover:bg-teal-500/30 border border-teal-500/50 rounded-xl text-teal-400 hover:text-teal-300 transition-all duration-300"
                 >
-                  <span className="text-sm font-medium">View on Explorer</span>
+                  <span className="text-sm font-medium">{t('swap.view_explorer')}</span>
                   <ExternalLink className="w-4 h-4" />
                 </a>
               </div>

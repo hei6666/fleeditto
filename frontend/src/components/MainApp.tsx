@@ -6,6 +6,7 @@ import { Header } from './header';
 import { LiquidityDashboard } from './LiquidityDashboard';
 import { SwapDashboard } from './SwapDashboard';
 import { useAppActions } from '../contexts/AppContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 type PageType = 'liquidity' | 'swap';
 

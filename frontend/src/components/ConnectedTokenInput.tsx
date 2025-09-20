@@ -12,6 +12,10 @@ interface ConnectedTokenInputProps {
   isCalculating?: boolean;
   isPrimaryInput?: boolean;
   onPrimaryInputChange?: (isPrimary: boolean) => void;
+  // Only show address input, hide amount input
+  addressOnly?: boolean;
+  // Only show amount input and token info, hide address input
+  amountOnly?: boolean;
 }
 
 export function ConnectedTokenInput({
@@ -21,7 +25,9 @@ export function ConnectedTokenInput({
   value,
   isCalculating = false,
   isPrimaryInput = false,
-  onPrimaryInputChange
+  onPrimaryInputChange,
+  addressOnly = false,
+  amountOnly = false
 }: ConnectedTokenInputProps) {
   const { state } = useAppContext();
   const actions = useAppActions();
@@ -83,6 +89,8 @@ export function ConnectedTokenInput({
       isPrimaryInput={isPrimaryInput}
       onPrimaryInputChange={onPrimaryInputChange}
       availableBalance={availableBalance}
+      addressOnly={addressOnly}
+      amountOnly={amountOnly}
     />
   );
 }

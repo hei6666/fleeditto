@@ -12,6 +12,8 @@ import { findTokenByAddress, extractTokenSymbol } from '../config/tokens';
 import {tickToPrice} from "@hyperionxyz/sdk";
 
 import { useAppContext } from '../contexts/AppContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import { supportedDEXes } from '../config/dexes';
 interface UserPositionsProps {
   onBack: () => void;
 }
@@ -99,9 +101,10 @@ function TokenDisplay({ coinType, amount, decimals = 8, className = '', amountCo
 interface TokenRatioProps {
   tokenA: { coinType: string; amount: string; decimals: number };
   tokenB: { coinType: string; amount: string; decimals: number };
+  t: (key: string) => string;
 }
 
-function TokenRatio({ tokenA, tokenB }: TokenRatioProps) {
+function TokenRatio({ tokenA, tokenB, t }: TokenRatioProps) {
   const tokenAInfo = findTokenByAddress(tokenA.coinType);
   const tokenBInfo = findTokenByAddress(tokenB.coinType);
   const symbolA = tokenAInfo?.symbol || extractTokenSymbol(tokenA.coinType);
@@ -117,7 +120,7 @@ function TokenRatio({ tokenA, tokenB }: TokenRatioProps) {
   return (
     <div className="space-y-2">
       <div className="flex justify-between text-xs">
-        <span className="text-white/60">Token Ratio</span>
+        <span className="text-white/60">{t('positions.token_ratio')}</span>
         <span className="text-white/60">{percentageA.toFixed(1)}% / {percentageB.toFixed(1)}%</span>
       </div>
 
@@ -151,6 +154,17 @@ export function UserPositions({ onBack }: UserPositionsProps) {
   const sdk = useHyperionSDK();
   const { currentNetwork , aptos} = useAptosClient();
   const ownerAddress = account?.address?.toString();
+  const { t } = useLanguage();
+
+  // Helper function to get DEX info by ID
+  const getDexInfo = (dexId: string) => {
+    return supportedDEXes.find(dex => dex.id.toLowerCase() === dexId.toLowerCase()) || {
+      id: dexId,
+      name: dexId.charAt(0).toUpperCase() + dexId.slice(1),
+      logoUrl: '',
+      contractAddress: ''
+    };
+  };
 
   const [userPositions, setUserPositions] = useState<any[]>([]);
   const [loadingPositions, setLoadingPositions] = useState(false);
@@ -158,7 +172,6 @@ export function UserPositions({ onBack }: UserPositionsProps) {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [positionAmounts, setPositionAmounts] = useState<{[key: string]: {tokenA: string, tokenB: string}}>({});
-  const { state } = useAppContext();
 
 
   // Clear messages after a delay
@@ -539,12 +552,12 @@ export function UserPositions({ onBack }: UserPositionsProps) {
             className="mb-6 border-white/20 text-white hover:bg-white/10"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Liquidity
+            {t('positions.back')}
           </Button>
 
           <div className="glass p-8 text-center">
-            <h2 className="text-2xl font-bold text-white mb-4">Connect Wallet</h2>
-            <p className="text-white/70">Please connect your wallet to view your positions.</p>
+            <h2 className="text-2xl font-bold text-white mb-4">{t('common.connect_wallet')}</h2>
+            <p className="text-white/70">{t('positions.connect_prompt')}</p>
           </div>
         </div>
       </div>
@@ -587,72 +600,134 @@ export function UserPositions({ onBack }: UserPositionsProps) {
 
         {/* Header */}
         <motion.div
-          className="flex items-center justify-between mb-8"
+          className="mb-8"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="flex items-center gap-4">
-            <Button
-              onClick={onBack}
-              variant="outline"
-              className="border-white/20 text-white hover:bg-white/10"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Liquidity
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold text-white">Your Positions</h1>
-              <p className="text-white/70">Manage your liquidity positions</p>
+          {/* Mobile Header Layout */}
+          <div className="block md:hidden space-y-4">
+            {/* Top Row: Back Button + Title */}
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={onBack}
+                variant="outline"
+                size="sm"
+                className="border-white/20 text-white hover:bg-white/10 px-3 py-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+              <div className="flex-1">
+                <h1 className="text-xl font-bold text-white">{t('positions.title')}</h1>
+                <p className="text-sm text-white/70">{userPositions.length} {t('pending.total_positions')}</p>
+              </div>
+              <Button
+                onClick={refreshPositions}
+                disabled={loadingPositions}
+                variant="outline"
+                size="sm"
+                className="border-white/20 text-white hover:bg-white/10 px-3 py-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${loadingPositions ? 'animate-spin' : ''}`} />
+              </Button>
             </div>
-          </div>
 
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <div className="text-sm text-white/70">Total Positions</div>
-              <div className="text-2xl font-bold text-white">{userPositions.length}</div>
-            </div>
-
-            <Button
-              onClick={refreshPositions}
-              disabled={loadingPositions}
-              variant="outline"
-              size="sm"
-              className="border-white/20 text-white hover:bg-white/10 px-3 py-2"
-            >
-              <RefreshCw className={`w-4 h-4 ${loadingPositions ? 'animate-spin' : ''}`} />
-            </Button>
-
-            {/* Action Buttons */}
+            {/* Action Buttons Row */}
             {userPositions.length > 0 && (
-              <div className="flex gap-3">
+              <div className="flex gap-2">
                 <Button
                   onClick={() => claim_all_position_fee_and_reward()}
                   disabled={operationLoading === 'claiming-all'}
-                  className="bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white px-4 py-2 text-sm disabled:opacity-50"
+                  className="flex-1 bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white px-3 py-2 text-sm disabled:opacity-50"
                 >
                   {operationLoading === 'claiming-all' ? (
                     <div className="w-4 h-4 border border-white/30 border-t-white rounded-full animate-spin mr-2" />
                   ) : (
                     <Gift className="w-4 h-4 mr-2" />
                   )}
-                  Claim All
+                  {t('positions.harvest')}
                 </Button>
                 <Button
                   onClick={() => remove_all_position()}
                   disabled={operationLoading === 'removing-all'}
                   variant="outline"
-                  className="border-red-500/50 text-red-400 hover:bg-red-500/10 hover:border-red-500 px-4 py-2 text-sm disabled:opacity-50"
+                  className="flex-1 border-red-500/50 text-red-400 hover:bg-red-500/10 hover:border-red-500 px-3 py-2 text-sm disabled:opacity-50"
                 >
                   {operationLoading === 'removing-all' ? (
                     <div className="w-4 h-4 border border-red-400/30 border-t-red-400 rounded-full animate-spin mr-2" />
                   ) : (
                     <X className="w-4 h-4 mr-2" />
                   )}
-                  Close All
+                  {t('positions.close_all')}
                 </Button>
               </div>
             )}
+          </div>
+
+          {/* Desktop Header Layout */}
+          <div className="hidden md:flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                onClick={onBack}
+                variant="outline"
+                className="border-white/20 text-white hover:bg-white/10"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                {t('positions.back')}
+              </Button>
+              <div>
+                <h1 className="text-3xl font-bold text-white">{t('positions.title')}</h1>
+                <p className="text-white/70">{t('positions.manage_desc')}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <div className="text-sm text-white/70">{t('pending.total_positions')}</div>
+                <div className="text-2xl font-bold text-white">{userPositions.length}</div>
+              </div>
+
+              <Button
+                onClick={refreshPositions}
+                disabled={loadingPositions}
+                variant="outline"
+                size="sm"
+                className="border-white/20 text-white hover:bg-white/10 px-3 py-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${loadingPositions ? 'animate-spin' : ''}`} />
+              </Button>
+
+              {/* Action Buttons */}
+              {userPositions.length > 0 && (
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => claim_all_position_fee_and_reward()}
+                    disabled={operationLoading === 'claiming-all'}
+                    className="bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white px-4 py-2 text-sm disabled:opacity-50"
+                  >
+                    {operationLoading === 'claiming-all' ? (
+                      <div className="w-4 h-4 border border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                    ) : (
+                      <Gift className="w-4 h-4 mr-2" />
+                    )}
+                    {t('positions.harvest')}
+                  </Button>
+                  <Button
+                    onClick={() => remove_all_position()}
+                    disabled={operationLoading === 'removing-all'}
+                    variant="outline"
+                    className="border-red-500/50 text-red-400 hover:bg-red-500/10 hover:border-red-500 px-4 py-2 text-sm disabled:opacity-50"
+                  >
+                    {operationLoading === 'removing-all' ? (
+                      <div className="w-4 h-4 border border-red-400/30 border-t-red-400 rounded-full animate-spin mr-2" />
+                    ) : (
+                      <X className="w-4 h-4 mr-2" />
+                    )}
+                    {t('positions.close_all')}
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         </motion.div>
 
@@ -664,8 +739,8 @@ export function UserPositions({ onBack }: UserPositionsProps) {
             animate={{ opacity: 1, scale: 1 }}
           >
             <div className="w-12 h-12 border-2 border-teal-400/20 border-t-teal-400 rounded-full animate-spin mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-white mb-2">Loading Positions</h3>
-            <p className="text-white/70">Fetching your liquidity positions...</p>
+            <h3 className="text-xl font-semibold text-white mb-2">{t('positions.loading')}</h3>
+            <p className="text-white/70">{t('positions.fetching_desc')}</p>
           </motion.div>
         ) : userPositions.length > 0 ? (
           <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-6">
@@ -680,13 +755,132 @@ export function UserPositions({ onBack }: UserPositionsProps) {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: index * 0.1 }}
                 >
-                  <div className="p-6">
+                  {/* Mobile/Small Screen Layout */}
+                  <div className="block md:hidden p-4">
+                    {/* Compact Header */}
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center overflow-hidden">
+                          {(() => {
+                            const dexInfo = getDexInfo('hyperion'); // Currently all positions are from Hyperion
+                            return dexInfo.logoUrl ? (
+                              <img
+                                src={dexInfo.logoUrl}
+                                alt={dexInfo.name}
+                                className="w-full h-full object-contain"
+                                onError={(e) => {
+                                  // Fallback to text if image fails to load
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  target.nextElementSibling?.classList.remove('hidden');
+                                }}
+                              />
+                            ) : null;
+                          })()}
+                          <span className="text-white font-bold text-xs hidden">H</span>
+                        </div>
+                        <div>
+                          {position.fees?.unclaimed?.length >= 2 ? (
+                            <div className="flex items-center gap-1">
+                              {position.fees.unclaimed.slice(0, 2).map((fee: any, tokenIndex: number) => {
+                                const tokenInfo = findTokenByAddress(fee.token);
+                                const symbol = tokenInfo?.symbol || extractTokenSymbol(fee.token);
+                                return (
+                                  <span key={tokenIndex} className="text-sm font-medium text-white">
+                                    {symbol}{tokenIndex === 0 && '/'}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <span className="text-sm font-medium text-white">{t('positions.position')} #{index + 1}</span>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${positionStatus.bgColor} ${positionStatus.color} border ${positionStatus.borderColor}`}>
+                              {positionStatus.status}
+                            </span>
+                            <span className="text-xs px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded-full">
+                              {formatFeeTier(position.position.pool.feeTier)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => remove_single_position(position.position.objectId)}
+                        disabled={operationLoading === `removing-${position.position.objectId}`}
+                        size="sm"
+                        variant="outline"
+                        className="border-red-500/50 text-red-400 hover:bg-red-500/10 hover:border-red-500 px-2 py-1 h-6 text-xs"
+                      >
+                        {operationLoading === `removing-${position.position.objectId}` ? (
+                          <div className="w-3 h-3 border border-red-400/30 border-t-red-400 rounded-full animate-spin" />
+                        ) : (
+                          <X className="w-3 h-3" />
+                        )}
+                      </Button>
+                    </div>
+
+                    {/* Compact Stats - 2 columns */}
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      <div className="bg-white/5 rounded-lg p-2">
+                        <div className="text-xs text-white/60 mb-1">{t('positions.total_value')}</div>
+                        <div className="text-sm font-bold text-white">{formatValue(position.value)}</div>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-2">
+                        <div className="text-xs text-white/60 mb-1">{t('common.current_price')}</div>
+                        <div className="text-sm font-bold text-white">
+                          {(() => {
+                            try {
+                              const currentPrice = tickToPrice({
+                                tick: position.position.pool.currentTick,
+                                decimalsRatio: 1
+                              });
+                              return formatValue(currentPrice);
+                            } catch (error) {
+                              return position.position.pool.currentTick;
+                            }
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Simplified Fees and Rewards */}
+                    {(position.fees?.unclaimed?.length > 0 || position.farm?.unclaimed?.length > 0) && (
+                      <div className="bg-gradient-to-r from-teal-500/10 to-cyan-500/10 border border-teal-500/20 rounded-lg p-2">
+                        <div className="text-xs text-teal-400 mb-1 flex items-center gap-1">
+                          <Zap className="w-3 h-3" />
+                          {t('positions.fees_earned')} & {t('positions.unclaimed_rewards')}
+                        </div>
+                        <div className="text-xs text-white/80">
+                          {position.fees?.unclaimed?.length || 0} fees + {position.farm?.unclaimed?.length || 0} rewards
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Desktop/Large Screen Layout */}
+                  <div className="hidden md:block p-6">
                     {/* Position Header */}
                     <div className="flex items-center justify-between mb-6">
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center relative">
-                          {/* Hyperion Logo/Icon */}
-                          <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
+                        <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center relative overflow-hidden">
+                          {(() => {
+                            const dexInfo = getDexInfo('hyperion'); // Currently all positions are from Hyperion
+                            return dexInfo.logoUrl ? (
+                              <img
+                                src={dexInfo.logoUrl}
+                                alt={dexInfo.name}
+                                className="w-8 h-8 object-contain"
+                                onError={(e) => {
+                                  // Fallback to text if image fails to load
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  target.nextElementSibling?.classList.remove('hidden');
+                                }}
+                              />
+                            ) : null;
+                          })()}
+                          <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center hidden">
                             <span className="text-blue-600 font-bold text-sm">H</span>
                           </div>
                           <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-teal-500 rounded-full flex items-center justify-center">
@@ -726,13 +920,13 @@ export function UserPositions({ onBack }: UserPositionsProps) {
                                 })}
                               </div>
                             ) : (
-                              <h3 className="text-lg font-semibold text-white">Position #{index + 1}</h3>
+                              <h3 className="text-lg font-semibold text-white">{t('positions.position')} #{index + 1}</h3>
                             )}
                             <span className="text-xs px-2 py-1 bg-blue-500/20 text-blue-400 rounded-full border border-blue-500/30">
                               Hyperion
                             </span>
                           </div>
-                          <p className="text-sm text-white/60">Pool ID: {position.position.poolId.slice(0, 8)}...</p>
+                          <p className="text-sm text-white/60">{t('positions.pool')}: {position.position.poolId.slice(0, 8)}...</p>
                         </div>
                       </div>
 
@@ -762,7 +956,7 @@ export function UserPositions({ onBack }: UserPositionsProps) {
                       <div className="bg-white/5 rounded-lg p-3">
                         <div className="flex items-center gap-2 mb-1">
                           <DollarSign className="w-3 h-3 text-teal-400" />
-                          <span className="text-xs text-white/70">Total Value</span>
+                          <span className="text-xs text-white/70">{t('positions.total_value')}</span>
                         </div>
                         <div className="text-lg font-bold text-white">
                           {formatValue(position.value)}
@@ -772,7 +966,7 @@ export function UserPositions({ onBack }: UserPositionsProps) {
                       <div className="bg-white/5 rounded-lg p-3">
                         <div className="flex items-center gap-2 mb-1">
                           <Target className="w-3 h-3 text-purple-400" />
-                          <span className="text-xs text-white/70">Fee Tier</span>
+                          <span className="text-xs text-white/70">{t('pending.fee_tier')}</span>
                         </div>
                         <div className="text-lg font-bold text-white">{formatFeeTier(position.position.pool.feeTier)}</div>
                       </div>
@@ -781,7 +975,7 @@ export function UserPositions({ onBack }: UserPositionsProps) {
                     {/* Position Details */}
                     <div className="space-y-2 mb-4">
                       <div className="flex justify-between text-xs">
-                        <span className="text-white/60">Price Range:</span>
+                        <span className="text-white/60">{t('pending.price_range')}:</span>
                         <span className="text-white font-mono">
                           {(() => {
                             try {
@@ -803,7 +997,7 @@ export function UserPositions({ onBack }: UserPositionsProps) {
                       </div>
 
                       <div className="flex justify-between text-xs">
-                        <span className="text-white/60">Current Price:</span>
+                        <span className="text-white/60">{t('common.current_price')}:</span>
                         <span className="text-white font-mono">
                           {(() => {
                             try {
@@ -820,7 +1014,7 @@ export function UserPositions({ onBack }: UserPositionsProps) {
                       </div>
 
                       <div className="flex justify-between text-xs">
-                        <span className="text-white/60">Pool Fee Rate:</span>
+                        <span className="text-white/60">{t('positions.pool_fee_rate')}:</span>
                         <span className="text-white font-mono">{position.position.pool.feeRate}</span>
                       </div>
                     </div>
@@ -839,6 +1033,7 @@ export function UserPositions({ onBack }: UserPositionsProps) {
                             amount: positionAmounts[position.position.objectId].tokenB,
                             decimals: position.fees.unclaimed[1].decimals || 8
                           }}
+                          t={t}
                         />
                       </div>
                     )}
@@ -848,7 +1043,7 @@ export function UserPositions({ onBack }: UserPositionsProps) {
                       <div className="bg-gradient-to-r from-teal-500/10 to-cyan-500/10 border border-teal-500/20 rounded-lg p-3 mb-4">
                         <div className="flex items-center gap-2 mb-2">
                           <Zap className="w-3 h-3 text-teal-400" />
-                          <span className="text-xs font-medium text-teal-400">Unclaimed Fees</span>
+                          <span className="text-xs font-medium text-teal-400">{t('positions.fees_earned')}</span>
                         </div>
                         <div className="space-y-2">
                           {position.fees.unclaimed.map((fee: any, feeIndex: number) => (
@@ -870,7 +1065,7 @@ export function UserPositions({ onBack }: UserPositionsProps) {
                       <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-lg p-3 mb-4">
                         <div className="flex items-center gap-2 mb-2">
                           <TrendingUp className="w-3 h-3 text-purple-400" />
-                          <span className="text-xs font-medium text-purple-400">Unclaimed Rewards</span>
+                          <span className="text-xs font-medium text-purple-400">{t('positions.unclaimed_rewards')}</span>
                         </div>
                         <div className="space-y-2">
                           {position.farm.unclaimed.map((reward: any, rewardIndex: number) => (
@@ -892,7 +1087,7 @@ export function UserPositions({ onBack }: UserPositionsProps) {
                     <div className="flex items-center justify-between pt-4 border-t border-white/10">
                       <div className="flex items-center gap-2 text-xs text-white/50">
                         <Calendar className="w-3 h-3" />
-                        <span>Created {new Date(position.position.createdAt).toLocaleDateString()}</span>
+                        <span>{t('positions.created')} {new Date(position.position.createdAt).toLocaleDateString()}</span>
                       </div>
 
                       <a
@@ -901,7 +1096,7 @@ export function UserPositions({ onBack }: UserPositionsProps) {
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-xs text-teal-400 hover:text-teal-300 transition-colors duration-200"
                       >
-                        <span>View Details</span>
+                        <span>{t('positions.view_details')}</span>
                         <ExternalLink className="w-3 h-3" />
                       </a>
                     </div>
@@ -919,15 +1114,15 @@ export function UserPositions({ onBack }: UserPositionsProps) {
             <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6">
               <Send className="w-10 h-10 text-white/30" />
             </div>
-            <h3 className="text-2xl font-semibold text-white mb-4">No Positions Found</h3>
+            <h3 className="text-2xl font-semibold text-white mb-4">{t('positions.no_positions')}</h3>
             <p className="text-white/70 mb-6 max-w-md mx-auto">
-              You haven't created any liquidity positions yet. Start by adding liquidity to earn fees from trading activity.
+              {t('positions.no_positions_desc')}
             </p>
             <Button
               onClick={onBack}
               className="bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white"
             >
-              Add Your First Position
+              {t('positions.add_first')}
             </Button>
           </motion.div>
         )}
