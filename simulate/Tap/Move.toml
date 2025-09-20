@@ -1,0 +1,7 @@
+[package]
+name = "Tap"
+version = "1.0.0"
+upgrade_policy = "compatible"
+
+[addresses]
+

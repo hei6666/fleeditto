@@ -1,0 +1,107 @@
+'use client';
+
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { LiquidityPosition } from '@/types';
+import { PoolSelection } from './pool-selection';
+import { LiquidityConfigCard } from './liquidity-config-card';
+import { BatchSummary } from './batch-summary';
+import { DEXSelector } from './DEXSelector';
+
+export function Dashboard() {
+  const [positions, setPositions] = useState<LiquidityPosition[]>([]);
+  const [selectedDEX, setSelectedDEX] = useState<string | null>(null);
+
+  const addPosition = (position: LiquidityPosition) => {
+    setPositions([...positions, position]);
+  };
+
+  const updatePosition = (index: number, position: LiquidityPosition) => {
+    const newPositions = [...positions];
+    newPositions[index] = position;
+    setPositions(newPositions);
+  };
+
+  const removePosition = (index: number) => {
+    setPositions(positions.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto px-6 pb-8">
+      <motion.div 
+        className="grid grid-cols-1 lg:grid-cols-3 gap-8"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.2 }}
+      >
+        {/* Left Column: Configuration Panel */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* DEX Selector */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+          >
+            <DEXSelector selectedDEX={selectedDEX} onDEXSelect={setSelectedDEX} />
+          </motion.div>
+
+          {/* Pool Selection - only show if DEX is selected */}
+          {selectedDEX && (
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+            >
+              <PoolSelection onPoolAdd={addPosition} />
+            </motion.div>
+          )}
+
+          <div className="space-y-4">
+            {positions.map((position, index) => (
+              <motion.div
+                key={`position-${index}`}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.3 }}
+              >
+                <LiquidityConfigCard
+                  position={position}
+                  onUpdate={(updatedPosition) => updatePosition(index, updatedPosition)}
+                  onRemove={() => removePosition(index)}
+                />
+              </motion.div>
+            ))}
+          </div>
+
+          {positions.length === 0 && (
+            <motion.div 
+              className="glass p-8 text-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+            >
+              <div className="text-gray-400 mb-2">
+                <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+              </div>
+              <p className="text-lg font-medium text-gray-300">No liquidity positions configured</p>
+              <p className="text-sm text-gray-500 mt-2">Search and add pools above to start building your batch transaction</p>
+            </motion.div>
+          )}
+        </div>
+
+        {/* Right Column: Batch Summary */}
+        <motion.div
+          className="lg:col-span-1"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+        >
+          <BatchSummary positions={positions} />
+        </motion.div>
+      </motion.div>
+    </div>
+  );
+}

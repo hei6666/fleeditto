@@ -44,7 +44,9 @@ module fleeditto::fleeditto {
         metadata_from_asset,
         zero
     };
+    use fleeditto::launch::{launch};
     use aptos_framework::object::{
+        Self,
         Object,
         create_object,
         generate_signer,
@@ -59,6 +61,7 @@ module fleeditto::fleeditto {
     use fleeditto::package_manager::{get_signer, get_ditto_address};
     use fleeditto::factory::{Control, create_main_coin, mint_coin, get_meta,burn};
     use fleeditto::vesting::{VestingSchedule, create};
+    use fleeditto::test_mode::{Self,TestPlan};
 
     friend fleeditto::project_interface;
 
@@ -73,10 +76,18 @@ module fleeditto::fleeditto {
     const NOTHING: u64 = 9009;
     const NOT_RIGHT_TIME: u64 = 9010;
     const PROJECT_NUMBER_NOT_MATCH:u64 =9011;
+    const NOT_CORRECT_MODE:u64 =9012;
+
     const Ditto_url: vector<u8> = b"";
     const Ditto_name: vector<u8> = b"";
     const Ditto_symbol: vector<u8> = b"";
     const Ditto_project_url: vector<u8> = b"";
+
+    const DT_url: vector<u8> = b"";
+    const DT_name: vector<u8> = b"";
+    const DT_symbol: vector<u8> = b"";
+    const DT_project_url: vector<u8> = b"";
+
     const TICK: u8 = 5;
     const MAGIC_NUMBER: u32 = 443636;
 
@@ -88,7 +99,8 @@ module fleeditto::fleeditto {
     /// `list`: 一個智能表 (SmartTable)，映射每個主代幣 (如 DITTO) 到其對應的啟動計畫 (`Plan`)。
     struct Ditto has key, store {
         admin: SmartVector<address>,
-        list: SmartTable<Object<Metadata>, Object<Plan>>
+        list: SmartTable<Object<Metadata>, Object<Plan>>,
+        test_coin:Control
     }
 
     /// @dev (EN) Defines a complete launch plan.
@@ -111,8 +123,10 @@ module fleeditto::fleeditto {
     /// `total_lp`: 所有項目質押的流動性總額。
     /// `tick`: 流動性池的 tick spacing。
     /// `time`: 計畫啟動的最早時間戳。
-    struct Plan has store {
+    struct Plan has key,store {
+        test_plan:Option<TestPlan>,
         vesting_schedule: VestingSchedule,
+        mode:String,
         project: vector<Project>,
         main_token: Control,
         main_token_amount: u64,
@@ -162,6 +176,7 @@ module fleeditto::fleeditto {
     /// @param ... 其他參數用於配置主代幣、流動性池和代幣釋放計畫。
     public entry fun create_plan(
         ditto_admin: &signer,
+        mode:String,
         project_number: u64,
         project_admin: vector<address>,
         project_init_li_amount: vector<u64>,
@@ -194,6 +209,7 @@ module fleeditto::fleeditto {
             pool == utf8(b"thala") || pool == utf8(b"hyperion"),
             NOT_SUPPORT_POOL
         );
+        assert!(mode == utf8(b"test") || mode == utf8(b"real"),NOT_CORRECT_MODE);
         assert!(tick <= TICK, NOT_CORRECT_TICK);
         assert!(project_number == project_admin.length(),PROJECT_NUMBER_NOT_MATCH);
         let new_control =
@@ -254,9 +270,26 @@ module fleeditto::fleeditto {
                 )
             )
         };
+        let test_plan= if(mode == utf8(b"test")){
+            none()
+        }else{
+            some(test_mode::create_test_plan(
+                pool,
+                upper, 
+                lower,
+                current,
+                total_lp,
+                tick,
+                ratio,
+                fee,
+                time
+            ))
+        };
 
         let new_plan = Plan {
             vesting_schedule: vesting,
+            test_plan,
+            mode,
             project,
             main_token: new_control,
             liquidity_meta: lp_meta,
@@ -351,7 +384,7 @@ module fleeditto::fleeditto {
     /// @dev 根據計畫中設定的 `pool`，它會調用對應的 DEX 啟動函數 (如 `launch_on_hyperion`)。
     /// @param ditto_admin 管理員的簽名者。
     /// @param main_meta 計畫的主代幣元數據，用於標識要啟動的計畫。
-    public entry fun ready_to_the_pool(
+     fun ready_to_the_pool(
         ditto_admin: &signer, main_meta: Object<Metadata>
     ) acquires Ditto, Plan {
         let ditto = borrow_global<Ditto>(get_ditto_address());
@@ -361,122 +394,13 @@ module fleeditto::fleeditto {
         let is_ready = is_ready(plan);
         assert!(is_ready, NOT_READY);
         assert!(now_seconds() >= plan.time, NOT_RIGHT_TIME);
-        if (plan.pool == utf8(b"hyperion")) {
-            launch_on_hyperion(&get_signer(), plan);
-        } else if (plan.pool == utf8(b"thala")) {
-            launch_on_thala(&get_signer(), plan);
-        }
+        // let main_fa = mint_coin(plan.)
+        // launch(ditto_admin,plan.pool,plan.tick,plan.range_down,plan.range_top,plan.current_price,plan.main_token_amount,plan.main_token_amount,mint_coin());
     }
 
-    /// @dev (EN) The core logic for launching liquidity pools on Hyperion DEX.
-    /// @dev Workflow:
-    /// 1. Collect the staked liquidity assets from all projects.
-    /// 2. Call `launch_main_hyperion` to create the main pool (e.g., DITTO/APT).
-    /// 3. Call `launch_suppoert_hyperion` to create a support pool for each participating project (e.g., PROJECT/DITTO).
-    /// @dev (中文) 在 Hyperion DEX 上啟動流動性池的核心邏輯。
-    /// @dev 流程:
-    /// 1. 收集所有項目質押的流動性資產。
-    /// 2. 調用 `launch_main_hyperion` 創建主池 (例如 DITTO/APT)。
-    /// 3. 調用 `launch_suppoert_hyperion` 為每個參與項目創建支持池 (例如 PROJECT/DITTO)。
-    fun launch_on_hyperion(ditto_signer: &signer, plan: &Plan) {
-        let main_fa = zero(plan.liquidity_meta);
-        for (i in 0..plan.project.length()) {
-            let project = &plan.project[i];
-            let fa =
-                dispatchable_fungible_asset::withdraw(
-                    ditto_signer, *project.lp_store.borrow(), project.init_lp_amount
-                );
-            fungible_asset::merge(&mut main_fa, fa);
-        };
-        launch_main_hyperion(ditto_signer, plan, main_fa);
-        launch_suppoert_hyperion(ditto_signer, plan);
-    }
+   
 
-    fun launch_main_hyperion(
-        ditto_signer: &signer, plan: &Plan, main_fa: FungibleAsset
-    ) {
-        let toal_main_coin_amount = plan.main_token_amount;
-        let total_pair_lp_amount = amount(&main_fa);
-        let main_coin_fa = mint_coin(&plan.main_token, toal_main_coin_amount);
-        router_v3::create_liquidity(
-            ditto_signer,
-            metadata_from_asset(&main_fa),
-            metadata_from_asset(&main_coin_fa),
-            plan.tick,
-            plan.range_down,
-            plan.range_top,
-            plan.current_price,
-            total_pair_lp_amount,
-            toal_main_coin_amount,
-            1,
-            1,
-            now_seconds()
-        );
-    }
-
-    fun launch_suppoert_hyperion(ditto_signer: &signer, plan: &Plan) {
-        for (i in 0..plan.project.length()) {
-            let project = &plan.project[i];
-            let amount = project.init_lp_amount;
-            let ditto_fa = mint_coin(&plan.main_token, amount);
-            let project_fa = mint_coin(project.project_coin.borrow(), amount);
-            router_v3::create_liquidity(
-                ditto_signer,
-                metadata_from_asset(&ditto_fa),
-                metadata_from_asset(&project_fa),
-                project.tick,
-                project.range_down,
-                project.range_top,
-                project.current_price,
-                amount,
-                amount,
-                1,
-                1,
-                now_seconds()
-            );
-        };
-    }
-
-    /// @dev (EN) The core logic for launching liquidity pools on Thala DEX.
-    /// @dev Note: The logic for creating support pools on Thala (`launch_suppoert_thala`) is not yet fully implemented.
-    /// @dev (中文) 在 Thala DEX 上啟動流動性池的核心邏輯。
-    /// @dev 注意：目前 Thala 的支持池創建邏輯 (`launch_suppoert_thala`) 尚未完全實現。
-    fun launch_on_thala(ditto_signer: &signer, plan: &Plan) {
-        let main_fa = zero(plan.liquidity_meta);
-        for (i in 0..plan.project.length()) {
-            let project = &plan.project[i];
-            let fa =
-                dispatchable_fungible_asset::withdraw(
-                    ditto_signer, *project.lp_store.borrow(), project.init_lp_amount
-                );
-            fungible_asset::merge(&mut main_fa, fa);
-        };
-        launch_main_thala(ditto_signer, plan, main_fa);
-    }
-
-    fun launch_main_thala(
-        ditto_signer: &signer, plan: &Plan, main_fa: FungibleAsset
-    ) {
-        let fa_amount = amount(&main_fa);
-        let main_coin_amouint = plan.total_lp;
-        primary_fungible_store::deposit(address_of(ditto_signer), main_fa);
-        let main_coin_fa = mint_coin(&plan.main_token, fa_amount);
-        primary_fungible_store::deposit(address_of(ditto_signer), main_coin_fa);
-        let major_meta = plan.liquidity_meta;
-        let main_coin_meta = get_meta(&plan.main_token);
-        let meta = vector<Object<Metadata>>[main_coin_meta, major_meta];
-        let amount = vector<u64>[main_coin_amouint, fa_amount];
-        let p = vector<u64>[50, 50];
-        coin_wrapper::create_pool_weighted<Notacoin, Notacoin, Notacoin, Notacoin>(
-            ditto_signer, meta, amount, p, plan.fee
-        );
-    }
-
-    /// @dev (EN) TODO: Create a support pool (PROJECT/DITTO) for each participating project on Thala.
-    /// @dev This is a feature to be extended and implemented in the future.
-    /// @dev (中文) TODO: 在 Thala 上為每個參與項目創建支持池 (PROJECT/DITTO)。
-    /// @dev 這是協議未來需要擴展和實現的功能。
-    fun launch_suppoert_thala() {}
+    
 
     fun is_ready(plan: &Plan): bool {
         let ready = 0;
@@ -531,21 +455,31 @@ module fleeditto::fleeditto {
 
     fun init_module(_ditto: &signer) {
         let new_v = new<address>();
+        let ditto_signer= &get_signer();
+        let test_coin = &object::create_named_object(ditto_signer,b"test");
+        //const DT_url: vector<u8> = b"";
+    // const DT_name: vector<u8> = b"";
+    // const DT_symbol: vector<u8> = b"";
+    // const DT_project_url: vector<u8> = b"";
+        let control = create_main_coin(test_coin,utf8(DT_name),utf8(DT_url),utf8(DT_project_url),utf8(DT_symbol),0);
         new_v.push_back(@fleeditto);
         move_to(
-            &get_signer(),
+            ditto_signer,
             Ditto {
                 admin: new_v,
-                list: smart_table::new<Object<Metadata>, Object<Plan>>()
+                list: smart_table::new<Object<Metadata>, Object<Plan>>(),
+                test_coin:control
             }
         );
     }
 
-    public(friend) fun burn_coin(burner:&signer,main:Object<Metadata>,fa:FungibleAsset){
-        let coin = metadata_from_asset(&fa);
+    public(friend) fun burn_coin(burner:&signer,main:Object<Metadata>,fa:FungibleAsset)acquires Ditto,Plan{
+        // let coin = metadata_from_asset(&fa);
         let ditto = borrow_global<Ditto>(get_ditto_address());
         assert!(ditto.list.contains(main), NO_PLAN);
         let plan = borrow_global<Plan>(object_address(ditto.list.borrow(main)));
         burn(address_of(burner),&plan.main_token,fa);
     }
+
+
 }

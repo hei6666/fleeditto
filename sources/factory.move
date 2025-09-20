@@ -23,8 +23,9 @@ module fleeditto::factory {
     use aptos_framework::primary_fungible_store;
 
     friend fleeditto::fleeditto;
+    friend fleeditto::launch;
 
-    struct Control has store {
+    struct Control has store ,drop{
         metadata: Object<Metadata>,
         extend_ref: ExtendRef,
         burn_ref: BurnRef,
