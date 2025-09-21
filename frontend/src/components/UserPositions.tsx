@@ -64,7 +64,7 @@ function TokenDisplay({ coinType, amount, decimals = 8, className = '', amountCo
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-center gap-2 min-w-0 flex-1">
         {tokenInfo?.logoUri ? (
           <img
             src={tokenInfo.logoUri}
@@ -83,14 +83,14 @@ function TokenDisplay({ coinType, amount, decimals = 8, className = '', amountCo
         >
           {symbol.charAt(0)}
         </div>
-        <div className="flex flex-col min-w-0">
+        <div className="flex flex-col min-w-0 flex-1">
           <span className="text-sm font-medium truncate">{symbol}</span>
           {name !== symbol && (
             <span className="text-xs text-white/50 truncate">{name}</span>
           )}
         </div>
       </div>
-      <span className={`font-medium ml-auto flex-shrink-0 ${amountColor}`}>
+      <span className={`font-medium flex-shrink-0 ${amountColor}`}>
         {formatTokenAmount(amount, decimals)}
       </span>
     </div>
@@ -566,7 +566,7 @@ export function UserPositions({ onBack }: UserPositionsProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6 rounded-lg">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         {/* Notifications */}
         {(error || successMessage) && (
           <motion.div
@@ -743,14 +743,14 @@ export function UserPositions({ onBack }: UserPositionsProps) {
             <p className="text-white/70">{t('positions.fetching_desc')}</p>
           </motion.div>
         ) : userPositions.length > 0 ? (
-          <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
             {userPositions.map((position, index) => {
               const positionStatus = getPositionStatus(position);
 
               return (
                 <motion.div
                   key={index}
-                  className="glass glass-hover border border-white/10 hover:border-white/20"
+                  className="glass glass-hover border border-white/10 hover:border-white/20 overflow-hidden"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: index * 0.1 }}
@@ -759,8 +759,8 @@ export function UserPositions({ onBack }: UserPositionsProps) {
                   <div className="block md:hidden p-4">
                     {/* Compact Header */}
                     <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center overflow-hidden">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
                           {(() => {
                             const dexInfo = getDexInfo('hyperion'); // Currently all positions are from Hyperion
                             return dexInfo.logoUrl ? (
@@ -779,27 +779,27 @@ export function UserPositions({ onBack }: UserPositionsProps) {
                           })()}
                           <span className="text-white font-bold text-xs hidden">H</span>
                         </div>
-                        <div>
+                        <div className="min-w-0 flex-1">
                           {position.fees?.unclaimed?.length >= 2 ? (
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 flex-wrap">
                               {position.fees.unclaimed.slice(0, 2).map((fee: any, tokenIndex: number) => {
                                 const tokenInfo = findTokenByAddress(fee.token);
                                 const symbol = tokenInfo?.symbol || extractTokenSymbol(fee.token);
                                 return (
-                                  <span key={tokenIndex} className="text-sm font-medium text-white">
+                                  <span key={tokenIndex} className="text-sm font-medium text-white truncate">
                                     {symbol}{tokenIndex === 0 && '/'}
                                   </span>
                                 );
                               })}
                             </div>
                           ) : (
-                            <span className="text-sm font-medium text-white">{t('positions.position')} #{index + 1}</span>
+                            <span className="text-sm font-medium text-white truncate">{t('positions.position')} #{index + 1}</span>
                           )}
-                          <div className="flex items-center gap-2">
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${positionStatus.bgColor} ${positionStatus.color} border ${positionStatus.borderColor}`}>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${positionStatus.bgColor} ${positionStatus.color} border ${positionStatus.borderColor} flex-shrink-0`}>
                               {positionStatus.status}
                             </span>
-                            <span className="text-xs px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded-full">
+                            <span className="text-xs px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded-full flex-shrink-0">
                               {formatFeeTier(position.position.pool.feeTier)}
                             </span>
                           </div>
@@ -810,7 +810,7 @@ export function UserPositions({ onBack }: UserPositionsProps) {
                         disabled={operationLoading === `removing-${position.position.objectId}`}
                         size="sm"
                         variant="outline"
-                        className="border-red-500/50 text-red-400 hover:bg-red-500/10 hover:border-red-500 px-2 py-1 h-6 text-xs"
+                        className="border-red-500/50 text-red-400 hover:bg-red-500/10 hover:border-red-500 px-2 py-1 h-6 text-xs flex-shrink-0"
                       >
                         {operationLoading === `removing-${position.position.objectId}` ? (
                           <div className="w-3 h-3 border border-red-400/30 border-t-red-400 rounded-full animate-spin" />
@@ -862,8 +862,8 @@ export function UserPositions({ onBack }: UserPositionsProps) {
                   <div className="hidden md:block p-6">
                     {/* Position Header */}
                     <div className="flex items-center justify-between mb-6">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center relative overflow-hidden">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center relative overflow-hidden flex-shrink-0">
                           {(() => {
                             const dexInfo = getDexInfo('hyperion'); // Currently all positions are from Hyperion
                             return dexInfo.logoUrl ? (
@@ -887,21 +887,21 @@ export function UserPositions({ onBack }: UserPositionsProps) {
                             <TrendingUp className="w-3 h-3 text-white" />
                           </div>
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
                             {/* Token Pair Display */}
                             {position.fees?.unclaimed?.length >= 2 ? (
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1 min-w-0">
                                 {position.fees.unclaimed.slice(0, 2).map((fee: any, tokenIndex: number) => {
                                   const tokenInfo = findTokenByAddress(fee.token);
                                   const symbol = tokenInfo?.symbol || extractTokenSymbol(fee.token);
                                   return (
-                                    <div key={tokenIndex} className="flex items-center">
+                                    <div key={tokenIndex} className="flex items-center min-w-0">
                                       {tokenInfo?.logoUri ? (
                                         <img
                                           src={tokenInfo.logoUri}
                                           alt={symbol}
-                                          className="w-5 h-5 rounded-full"
+                                          className="w-5 h-5 rounded-full flex-shrink-0"
                                           onError={(e) => {
                                             const target = e.target as HTMLImageElement;
                                             target.style.display = 'none';
@@ -909,28 +909,28 @@ export function UserPositions({ onBack }: UserPositionsProps) {
                                           }}
                                         />
                                       ) : (
-                                        <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white bg-gradient-to-br from-teal-500 to-cyan-500">
+                                        <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white bg-gradient-to-br from-teal-500 to-cyan-500 flex-shrink-0">
                                           {symbol.charAt(0)}
                                         </div>
                                       )}
-                                      <span className="text-sm font-medium text-white ml-1">{symbol}</span>
+                                      <span className="text-sm font-medium text-white ml-1 truncate">{symbol}</span>
                                       {tokenIndex === 0 && <span className="text-white/60 mx-1">/</span>}
                                     </div>
                                   );
                                 })}
                               </div>
                             ) : (
-                              <h3 className="text-lg font-semibold text-white">{t('positions.position')} #{index + 1}</h3>
+                              <h3 className="text-lg font-semibold text-white truncate">{t('positions.position')} #{index + 1}</h3>
                             )}
-                            <span className="text-xs px-2 py-1 bg-blue-500/20 text-blue-400 rounded-full border border-blue-500/30">
+                            <span className="text-xs px-2 py-1 bg-blue-500/20 text-blue-400 rounded-full border border-blue-500/30 flex-shrink-0">
                               Hyperion
                             </span>
                           </div>
-                          <p className="text-sm text-white/60">{t('positions.pool')}: {position.position.poolId.slice(0, 8)}...</p>
+                          <p className="text-sm text-white/60 truncate">{t('positions.pool')}: {position.position.poolId.slice(0, 8)}...</p>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-shrink-0">
                         <span className={`text-xs px-3 py-1 rounded-full ${positionStatus.bgColor} ${positionStatus.color} border ${positionStatus.borderColor}`}>
                           {positionStatus.status}
                         </span>

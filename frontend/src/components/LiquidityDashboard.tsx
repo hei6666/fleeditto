@@ -39,8 +39,8 @@ export function LiquidityDashboard() {
   };
 
   // APR fetching function
-  const fetchAPRData = async (minPrice: number, maxPrice: number, tokenAAmount: string, tokenBAmount: string) => {
-    console.log('fetchAPRData called with:', { minPrice, maxPrice, tokenAAmount, tokenBAmount });
+  const fetchAPRData = async (minPrice: number, maxPrice: number) => {
+    console.log('fetchAPRData called with:', { minPrice, maxPrice });
 
     if (!state.tokenA.metadata || !state.tokenB.metadata || (state.feeTier === null || state.feeTier === undefined)) {
       console.log('fetchAPRData early return - missing metadata or feeTier:', {
@@ -102,9 +102,9 @@ export function LiquidityDashboard() {
         throw new Error('Pool not found for APR calculation');
       }
 
-      // Convert token amounts to the format expected by the API (with decimals)
-      const token1AmountWithDecimals = (parseFloat(tokenAAmount || '0') * Math.pow(10, tokenADecimals)).toString();
-      const token2AmountWithDecimals = (parseFloat(tokenBAmount || '0') * Math.pow(10, tokenBDecimals)).toString();
+      // Use fixed amounts (1 token) for APR calculation, since APR is rate-independent
+      const token1AmountWithDecimals = Math.pow(10, tokenADecimals).toString(); // 1 token A
+      const token2AmountWithDecimals = Math.pow(10, tokenBDecimals).toString(); // 1 token B
 
       // Fetch APR data from Hyperion GraphQL API
       const response = await fetch("https://api.hyperion.xyz/v1/graphql", {
@@ -308,10 +308,6 @@ export function LiquidityDashboard() {
       state.minPrice < state.maxPrice &&
       state.feeTier !== null &&
       state.feeTier !== undefined &&
-      inputAmount &&
-      calculatedAmount &&
-      !isCalculating &&
-      !calculationError &&
       state.selectedDex === 'hyperion' &&
       state.poolState === 'exists' // Only fetch APR for existing pools
     );
@@ -323,30 +319,20 @@ export function LiquidityDashboard() {
       maxPrice: state.maxPrice,
       validPriceRange: state.minPrice > 0 && state.maxPrice > 0 && state.minPrice < state.maxPrice,
       hasFeeTier: state.feeTier !== null && state.feeTier !== undefined,
-      hasInputAmount: !!inputAmount,
-      hasCalculatedAmount: !!calculatedAmount,
-      isCalculating,
-      hasCalculationError: !!calculationError,
       selectedDex: state.selectedDex,
       poolState: state.poolState,
       shouldFetchAPR
     });
 
     if (shouldFetchAPR) {
-      const tokenAAmount = selectedInputToken === 'A' ? inputAmount : calculatedAmount;
-      const tokenBAmount = selectedInputToken === 'B' ? inputAmount : calculatedAmount;
-
       console.log('Fetching APR with data:', {
         minPrice: state.minPrice,
-        maxPrice: state.maxPrice,
-        tokenAAmount,
-        tokenBAmount,
-        selectedInputToken
+        maxPrice: state.maxPrice
       });
 
       // Add a small delay to avoid too frequent API calls
       const timeoutId = setTimeout(() => {
-        fetchAPRData(state.minPrice, state.maxPrice, tokenAAmount, tokenBAmount);
+        fetchAPRData(state.minPrice, state.maxPrice);
       }, 500);
 
       return () => clearTimeout(timeoutId);
@@ -362,11 +348,6 @@ export function LiquidityDashboard() {
     state.minPrice,
     state.maxPrice,
     state.feeTier,
-    inputAmount,
-    calculatedAmount,
-    isCalculating,
-    calculationError,
-    selectedInputToken,
     state.selectedDex,
     state.poolState
   ]);
@@ -1123,6 +1104,58 @@ export function LiquidityDashboard() {
                     </div>
                   </div>
 
+                  {/* APR Preview */}
+                  {state.selectedDex === 'hyperion' && state.poolState === 'exists' && state.minPrice > 0 && state.maxPrice > 0 && (
+                    <div className="p-6 bg-gradient-to-r from-purple-500/15 to-pink-500/15 border border-purple-500/30 rounded-xl">
+                      <div className="flex items-center gap-2 mb-4">
+                        <span className="text-purple-400 text-lg font-semibold">🎯 {t('apr.title')}</span>
+                        {isLoadingAPR && (
+                          <div className="w-4 h-4 border-2 border-purple-400/20 border-t-purple-400 rounded-full animate-spin" />
+                        )}
+                      </div>
+
+                      {aprError && (
+                        <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-4">
+                          ⚠️ {aprError}
+                        </div>
+                      )}
+
+                      {aprData && !isLoadingAPR ? (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="bg-white/10 rounded-lg p-4 text-center">
+                            <div className="text-white/70 text-sm mb-1">{t('apr.fee_apr')}</div>
+                            <div className="text-green-400 font-bold text-2xl">
+                              {(parseFloat(aprData.feeAPR)).toFixed(2)}%
+                            </div>
+                            <div className="text-white/50 text-xs">{t('apr.annual_return')}</div>
+                          </div>
+                          <div className="bg-white/10 rounded-lg p-4 text-center">
+                            <div className="text-white/70 text-sm mb-1">{t('apr.farm_apr')}</div>
+                            <div className="text-blue-400 font-bold text-2xl">
+                              {(parseFloat(aprData.farmAPR)).toFixed(2)}%
+                            </div>
+                            <div className="text-white/50 text-xs">{t('apr.annual_return')}</div>
+                          </div>
+                          <div className="bg-white/10 rounded-lg p-4 text-center">
+                            <div className="text-white/70 text-sm mb-1">{t('apr.total_apr')}</div>
+                            <div className="text-purple-400 font-bold text-3xl">
+                              {((parseFloat(aprData.feeAPR) + parseFloat(aprData.farmAPR))).toFixed(2)}%
+                            </div>
+                            <div className="text-white/50 text-xs">{t('apr.annual_return')}</div>
+                          </div>
+                        </div>
+                      ) : !aprError && !aprData && !isLoadingAPR ? (
+                        <div className="text-sm text-white/50 text-center py-4">
+                          {t('apr.price_range_prompt')}
+                        </div>
+                      ) : isLoadingAPR ? (
+                        <div className="text-sm text-purple-400 text-center py-4">
+                          {t('apr.calculating')}
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+
                   {/* Amount Input Section */}
                   {state.minPrice > 0 && state.maxPrice > 0 && (
                     <div>
@@ -1195,57 +1228,7 @@ export function LiquidityDashboard() {
                     </div>
                   )}
 
-                  {/* APR Preview */}
-                  {state.selectedDex === 'hyperion' && state.poolState === 'exists' && state.minPrice > 0 && state.maxPrice > 0 && (inputAmount || calculatedAmount) && (
-                    <div className="p-6 bg-gradient-to-r from-purple-500/15 to-pink-500/15 border border-purple-500/30 rounded-xl">
-                      <div className="flex items-center gap-2 mb-4">
-                        <span className="text-purple-400 text-lg font-semibold">🎯 {t('apr.title')}</span>
-                        {isLoadingAPR && (
-                          <div className="w-4 h-4 border-2 border-purple-400/20 border-t-purple-400 rounded-full animate-spin" />
-                        )}
-                      </div>
-
-                      {aprError && (
-                        <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-4">
-                          ⚠️ {aprError}
-                        </div>
-                      )}
-
-                      {aprData && !isLoadingAPR ? (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div className="bg-white/10 rounded-lg p-4 text-center">
-                            <div className="text-white/70 text-sm mb-1">{t('apr.fee_apr')}</div>
-                            <div className="text-green-400 font-bold text-2xl">
-                              {(parseFloat(aprData.feeAPR)).toFixed(2)}%
-                            </div>
-                            <div className="text-white/50 text-xs">{t('apr.annual_return')}</div>
-                          </div>
-                          <div className="bg-white/10 rounded-lg p-4 text-center">
-                            <div className="text-white/70 text-sm mb-1">{t('apr.farm_apr')}</div>
-                            <div className="text-blue-400 font-bold text-2xl">
-                              {(parseFloat(aprData.farmAPR)).toFixed(2)}%
-                            </div>
-                            <div className="text-white/50 text-xs">{t('apr.annual_return')}</div>
-                          </div>
-                          <div className="bg-white/10 rounded-lg p-4 text-center">
-                            <div className="text-white/70 text-sm mb-1">{t('apr.total_apr')}</div>
-                            <div className="text-purple-400 font-bold text-3xl">
-                              {((parseFloat(aprData.feeAPR) + parseFloat(aprData.farmAPR))).toFixed(2)}%
-                            </div>
-                            <div className="text-white/50 text-xs">{t('apr.annual_return')}</div>
-                          </div>
-                        </div>
-                      ) : !aprError && !aprData && !isLoadingAPR ? (
-                        <div className="text-sm text-white/50 text-center py-4">
-                          {t('apr.input_amount_prompt')}
-                        </div>
-                      ) : isLoadingAPR ? (
-                        <div className="text-sm text-purple-400 text-center py-4">
-                          {t('apr.calculating')}
-                        </div>
-                      ) : null}
-                    </div>
-                  )}
+                  
                 </div>
               </div>
             </motion.div>
