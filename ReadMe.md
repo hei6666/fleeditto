@@ -1,7 +1,7 @@
 <div align="center">
 
   
-  <img src="[YOUR LOGO HERE]" alt="Fleeditto Logo" width="200"/>
+  <img src="./frontend/public/favicon-backup.svg" alt="Fleeditto Logo" width="200"/>
 
 # Fleeditto
 
