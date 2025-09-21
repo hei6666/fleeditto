@@ -7,8 +7,6 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "install": "pnpm install",
-    "add": "pnpm add",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -31,6 +29,7 @@
     "react-dom": "19.1.0",
     "recharts": "^2.15.4",
     "swr": "^2.3.6",
+    "vercel": "^48.1.0",
     "viem": "^2.36.0",
     "wagmi": "^2.16.9"
   },

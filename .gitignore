@@ -3,3 +3,4 @@ build/
 .claude/
 .vscode/
 node_modules/
+.vercel
