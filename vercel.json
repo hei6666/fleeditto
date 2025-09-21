@@ -1,5 +1,5 @@
 {
   "buildCommand": "cd frontend && pnpm build",
-  "devCommand": "cd frontend && pnpm dev",
-  "installCommand": "cd frontend && pnpm install"
+  "installCommand": "cd frontend && pnpm install --frozen-lockfile",
+  "outputDirectory": "frontend/.next"
 }
