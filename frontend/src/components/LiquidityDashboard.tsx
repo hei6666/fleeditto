@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useWallet } from '@aptos-labs/wallet-adapter-react';
 import { Wallet, Send, Settings, AlertCircle, Plus, ExternalLink } from 'lucide-react';
@@ -206,6 +206,29 @@ export function LiquidityDashboard() {
   const [isLoadingAPR, setIsLoadingAPR] = useState(false);
   const [aprError, setAprError] = useState<string | null>(null);
 
+  // Debounced price range change handler
+  const debouncedRangeChange = useCallback(
+    (() => {
+      let timeoutId: NodeJS.Timeout;
+      return (minPrice: number, maxPrice: number) => {
+        // Clear previous timeout
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+
+        // Update price range immediately for UI responsiveness
+        actions.setPriceRange(minPrice, maxPrice);
+
+        // Debounce APR fetch to avoid frequent API calls
+        timeoutId = setTimeout(() => {
+          console.log('Debounced range change:', { minPrice, maxPrice });
+          // APR will be fetched automatically by the existing useEffect
+        }, 1000); // 1 second debounce
+      };
+    })(),
+    [actions]
+  );
+
   // Clear calculation when selected token changes
   useEffect(() => {
     setInputAmount('');
@@ -330,10 +353,10 @@ export function LiquidityDashboard() {
         maxPrice: state.maxPrice
       });
 
-      // Add a small delay to avoid too frequent API calls
+      // Add a delay to avoid too frequent API calls - sync with drag debounce
       const timeoutId = setTimeout(() => {
         fetchAPRData(state.minPrice, state.maxPrice);
-      }, 500);
+      }, 1200); // Slightly longer than drag debounce to ensure it only fires after user stops dragging
 
       return () => clearTimeout(timeoutId);
     } else {
@@ -1091,6 +1114,7 @@ export function LiquidityDashboard() {
                         tokenASymbol={state.tokenA.metadata.symbol}
                         tokenBSymbol={state.tokenB.metadata.symbol}
                         feeTier={state.feeTier}
+                        onRangeChange={debouncedRangeChange}
                       />
 
                       <PriceRangeSelector

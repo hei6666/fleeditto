@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from 'react';
+import { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   AreaChart,
@@ -21,6 +21,7 @@ interface LiquidityChartProps {
   tokenASymbol?: string;
   tokenBSymbol?: string;
   feeTier?: number;
+  onRangeChange?: (minPrice: number, maxPrice: number) => void;
 }
 
 interface ChartDataPoint {
@@ -36,8 +37,16 @@ export function LiquidityChart({
   maxPrice,
   tokenASymbol = 'TOKEN_A',
   tokenBSymbol = 'TOKEN_B',
-  feeTier
+  feeTier,
+  onRangeChange
 }: LiquidityChartProps) {
+
+  // Dragging state
+  const [isDragging, setIsDragging] = useState<'min' | 'max' | null>(null);
+  const chartRef = useRef<HTMLDivElement>(null);
+  const [tempRange, setTempRange] = useState<{ minPrice: number; maxPrice: number } | null>(null);
+  const pendingRangeChangeRef = useRef<{ minPrice: number; maxPrice: number } | null>(null);
+
   // Helper function to get price range multiplier based on fee tier
   const getPriceRangeMultiplier = (feeTierIndex?: number): number => {
     if (feeTierIndex === undefined || feeTierIndex === null) {
@@ -57,6 +66,19 @@ export function LiquidityChart({
 
     return feeRangeMap[feeTierIndex] || 0.5; // Default to 50% if not found
   };
+
+  // Use temporary range while dragging, otherwise use props
+  const displayMinPrice = tempRange?.minPrice ?? minPrice;
+  const displayMaxPrice = tempRange?.maxPrice ?? maxPrice;
+
+  // Get chart dimensions and price range for coordinate conversion
+  const chartDimensions = useMemo(() => {
+    const rangeMultiplier = getPriceRangeMultiplier(feeTier) == 0.002 ? getPriceRangeMultiplier(feeTier) : getPriceRangeMultiplier(feeTier)*12;
+    const priceRange = currentPrice * rangeMultiplier;
+    const minChartPrice = Math.max(0.001, currentPrice - priceRange);
+    const maxChartPrice = currentPrice + priceRange;
+    return { minChartPrice, maxChartPrice };
+  }, [currentPrice, feeTier]);
 
   // Generate liquidity distribution curve data
   const chartData = useMemo(() => {
@@ -88,7 +110,7 @@ export function LiquidityChart({
       const normalizedLiquidity = liquidity * 100 * Math.sqrt(2 * Math.PI * variance);
 
       // Check if this price point is within the selected range
-      const isSelected = price >= minPrice && price <= maxPrice;
+      const isSelected = price >= displayMinPrice && price <= displayMaxPrice;
 
       dataPoints.push({
         price: parseFloat(price.toFixed(6)),
@@ -100,7 +122,138 @@ export function LiquidityChart({
     }
 
     return dataPoints;
-  }, [currentPrice, minPrice, maxPrice, feeTier]);
+  }, [currentPrice, displayMinPrice, displayMaxPrice, feeTier]);
+
+  // Convert mouse position to price value
+  const mouseToPrice = useCallback((mouseX: number): number => {
+    if (!chartRef.current || !chartData || chartData.length === 0) return currentPrice;
+
+    const rect = chartRef.current.getBoundingClientRect();
+    // Use the same margins as AreaChart component
+    const chartMarginLeft = 20 + 16; // 20px from AreaChart + 16px from div padding
+    const chartMarginRight = 30 + 16; // 30px from AreaChart + 16px from div padding
+    const chartWidth = rect.width - chartMarginLeft - chartMarginRight;
+
+    const relativeX = (mouseX - rect.left - chartMarginLeft) / chartWidth;
+    const clampedX = Math.max(0, Math.min(1, relativeX));
+
+    // Use the actual chart data range to match Recharts domain
+    const dataMinPrice = Math.min(...chartData.map(d => d.price));
+    const dataMaxPrice = Math.max(...chartData.map(d => d.price));
+    const price = dataMinPrice + (dataMaxPrice - dataMinPrice) * clampedX;
+
+    return Math.max(0.001, price);
+  }, [chartData, currentPrice]);
+
+  // Handle mouse down on range handles
+  const handleMouseDown = useCallback((type: 'min' | 'max', event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    setIsDragging(type);
+    setTempRange({ minPrice, maxPrice });
+
+    let animationFrameId: number;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      // Use requestAnimationFrame for smoother updates
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+
+      animationFrameId = requestAnimationFrame(() => {
+        const newPrice = mouseToPrice(e.clientX);
+
+        setTempRange(prevRange => {
+          if (!prevRange) return null;
+
+          let newRange;
+          if (type === 'min') {
+            const newMinPrice = Math.max(0.001, Math.min(newPrice, prevRange.maxPrice - 0.001));
+            newRange = { ...prevRange, minPrice: newMinPrice };
+          } else if (type === 'max') {
+            const newMaxPrice = Math.max(newPrice, prevRange.minPrice + 0.001);
+            newRange = { ...prevRange, maxPrice: newMaxPrice };
+          } else {
+            return prevRange;
+          }
+
+          // Only update if the price actually changed to avoid unnecessary re-renders
+          if (newRange.minPrice !== prevRange.minPrice || newRange.maxPrice !== prevRange.maxPrice) {
+            return newRange;
+          }
+          return prevRange;
+        });
+      });
+    };
+
+    const handleMouseUp = () => {
+      // Clean up animation frame
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+
+      // Store the final range change for later execution
+      setTempRange(currentTempRange => {
+        if (currentTempRange) {
+          pendingRangeChangeRef.current = {
+            minPrice: currentTempRange.minPrice,
+            maxPrice: currentTempRange.maxPrice
+          };
+        }
+        return null;
+      });
+
+      setIsDragging(null);
+
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [minPrice, maxPrice, mouseToPrice, onRangeChange]);
+
+  // Calculate position percentage for handles (matching Recharts coordinate system)
+  const getHandlePosition = useCallback((price: number): number => {
+    // Use the actual chart data range instead of fixed dimensions
+    if (!chartData || chartData.length === 0) return 0;
+
+    const dataMinPrice = Math.min(...chartData.map(d => d.price));
+    const dataMaxPrice = Math.max(...chartData.map(d => d.price));
+
+    return ((price - dataMinPrice) / (dataMaxPrice - dataMinPrice)) * 100;
+  }, [chartData]);
+
+  // Calculate absolute position with proper margins
+  const getHandleStyle = useCallback((price: number) => {
+    const positionPercent = getHandlePosition(price);
+    const chartMarginLeft = 20 + 16; // AreaChart left margin + div padding
+
+    return {
+      left: `calc(${positionPercent}% + ${chartMarginLeft}px)`,
+      transform: 'translateX(-50%)'
+    };
+  }, [getHandlePosition]);
+
+  // Handle pending range changes after render
+  useEffect(() => {
+    if (pendingRangeChangeRef.current && onRangeChange && !isDragging) {
+      const { minPrice, maxPrice } = pendingRangeChangeRef.current;
+      pendingRangeChangeRef.current = null;
+      onRangeChange(minPrice, maxPrice);
+    }
+  }, [onRangeChange, isDragging]);
+
+  // Cleanup effect to ensure dragging state is reset
+  useEffect(() => {
+    return () => {
+      setIsDragging(null);
+      setTempRange(null);
+      pendingRangeChangeRef.current = null;
+    };
+  }, []);
+
 
   // Custom tooltip component
   const CustomTooltip = ({ active, payload, label }: { 
@@ -151,19 +304,24 @@ export function LiquidityChart({
           Visualization of liquidity concentration around the current market price
         </p>
         <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
-          <p className="text-sm text-blue-300">
+          <p className="text-sm text-blue-300 mb-2">
             <span className="text-blue-400 font-medium">🎯 Blue highlighted area</span> shows your selected price range where your liquidity will be active
           </p>
+          {onRangeChange && (
+            <p className="text-xs text-teal-300">
+              <span className="text-teal-400 font-medium">📍 Interactive:</span> Drag the Min/Max handles on the chart to adjust your price range
+            </p>
+          )}
         </div>
       </div>
 
       <div className="space-y-4">
         {/* Price Information */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <div className="bg-white/5 rounded-lg p-3 backdrop-filter backdrop-blur-sm">
-            <div className="text-xs text-white/60 mb-1">Min Price</div>
+          <div className={`bg-white/5 rounded-lg p-3 backdrop-filter backdrop-blur-sm transition-all ${isDragging === 'min' ? 'bg-teal-500/20 border border-teal-400/50' : ''}`}>
+            <div className="text-xs text-white/60 mb-1">Min Price {isDragging === 'min' && '(Dragging)'}</div>
             <div className="text-teal-400 font-mono text-sm">
-              {formatPrice(minPrice)} {tokenBSymbol}
+              {formatPrice(displayMinPrice)} {tokenBSymbol}
             </div>
           </div>
           <div className="bg-white/5 rounded-lg p-3 backdrop-filter backdrop-blur-sm">
@@ -172,16 +330,19 @@ export function LiquidityChart({
               {formatPrice(currentPrice)} {tokenBSymbol}
             </div>
           </div>
-          <div className="bg-white/5 rounded-lg p-3 backdrop-filter backdrop-blur-sm">
-            <div className="text-xs text-white/60 mb-1">Max Price</div>
+          <div className={`bg-white/5 rounded-lg p-3 backdrop-filter backdrop-blur-sm transition-all ${isDragging === 'max' ? 'bg-teal-500/20 border border-teal-400/50' : ''}`}>
+            <div className="text-xs text-white/60 mb-1">Max Price {isDragging === 'max' && '(Dragging)'}</div>
             <div className="text-teal-400 font-mono text-sm">
-              {formatPrice(maxPrice)} {tokenBSymbol}
+              {formatPrice(displayMaxPrice)} {tokenBSymbol}
             </div>
           </div>
         </div>
 
         {/* Chart */}
-        <div className="h-80 w-full bg-white/5 rounded-xl p-4 backdrop-filter backdrop-blur-sm">
+        <div
+          ref={chartRef}
+          className={`relative h-80 w-full bg-white/5 rounded-xl p-4 backdrop-filter backdrop-blur-sm ${isDragging ? 'cursor-grabbing' : 'cursor-auto'}`}
+        >
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={chartData}
@@ -266,20 +427,21 @@ export function LiquidityChart({
               
               {/* Selected range area */}
               <ReferenceArea
-                x1={minPrice}
-                x2={maxPrice}
+                x1={displayMinPrice}
+                x2={displayMaxPrice}
                 fill="url(#selectedGradient)"
                 fillOpacity={0.3}
                 stroke="#06b6d4"
                 strokeWidth={1}
                 strokeDasharray="3 3"
               />
-              
+
               {/* Price range boundary lines */}
               <ReferenceLine
-                x={minPrice}
+                x={displayMinPrice}
                 stroke="#06b6d4"
-                strokeWidth={1.5}
+                strokeWidth={2}
+                strokeDasharray="5 5"
                 label={{
                   value: "Min",
                   position: "insideBottomLeft",
@@ -287,11 +449,12 @@ export function LiquidityChart({
                   fontSize: 11
                 }}
               />
-              
+
               <ReferenceLine
-                x={maxPrice}
+                x={displayMaxPrice}
                 stroke="#06b6d4"
-                strokeWidth={1.5}
+                strokeWidth={2}
+                strokeDasharray="5 5"
                 label={{
                   value: "Max",
                   position: "insideBottomRight",
@@ -301,6 +464,80 @@ export function LiquidityChart({
               />
             </AreaChart>
           </ResponsiveContainer>
+
+          {/* Draggable handles */}
+          {onRangeChange && (
+            <>
+
+              {/* Min price handle */}
+              <div
+                className={`absolute top-4 bg-teal-500 text-white text-xs px-2 py-1 rounded-lg cursor-grab active:cursor-grabbing shadow-lg hover:bg-teal-400 select-none z-20 transform-gpu transition-transform duration-75 ${
+                  isDragging === 'min'
+                    ? 'scale-110 bg-teal-400 shadow-xl ring-2 ring-teal-300/50'
+                    : 'hover:scale-105'
+                }`}
+                style={{
+                  ...getHandleStyle(displayMinPrice),
+                  willChange: 'transform'
+                }}
+                onMouseDown={(e) => handleMouseDown('min', e)}
+                title="Drag to adjust minimum price"
+              >
+                📍 Min
+              </div>
+
+              {/* Max price handle */}
+              <div
+                className={`absolute top-4 bg-teal-500 text-white text-xs px-2 py-1 rounded-lg cursor-grab active:cursor-grabbing shadow-lg hover:bg-teal-400 select-none z-20 transform-gpu transition-transform duration-75 ${
+                  isDragging === 'max'
+                    ? 'scale-110 bg-teal-400 shadow-xl ring-2 ring-teal-300/50'
+                    : 'hover:scale-105'
+                }`}
+                style={{
+                  ...getHandleStyle(displayMaxPrice),
+                  willChange: 'transform'
+                }}
+                onMouseDown={(e) => handleMouseDown('max', e)}
+                title="Drag to adjust maximum price"
+              >
+                📍 Max
+              </div>
+
+              {/* Real-time price display during dragging */}
+              {isDragging === 'min' && (
+                <div
+                  className="absolute bg-teal-500 text-white text-xs px-2 py-1 rounded-lg shadow-lg pointer-events-none z-30 animate-pulse"
+                  style={{
+                    ...getHandleStyle(displayMinPrice),
+                    bottom: '20px'
+                  }}
+                >
+                  {formatPrice(displayMinPrice)} {tokenBSymbol}
+                </div>
+              )}
+
+              {isDragging === 'max' && (
+                <div
+                  className="absolute bg-teal-500 text-white text-xs px-2 py-1 rounded-lg shadow-lg pointer-events-none z-30 animate-pulse"
+                  style={{
+                    ...getHandleStyle(displayMaxPrice),
+                    bottom: '20px'
+                  }}
+                >
+                  {formatPrice(displayMaxPrice)} {tokenBSymbol}
+                </div>
+              )}
+
+              {/* Instructions overlay */}
+              {!isDragging && (
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-0 hover:opacity-100 transition-opacity">
+                  <div className="bg-black/70 text-white text-xs px-3 py-2 rounded-lg">
+                    💡 Drag the Min/Max handles to adjust price range
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         {/* Chart Legend */}
@@ -316,10 +553,6 @@ export function LiquidityChart({
           <div className="flex items-center gap-2">
             <div className="w-3 h-1 bg-orange-500"></div>
             <span className="text-white/70">📍 Current Price</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-1 bg-cyan-400 opacity-75"></div>
-            <span className="text-white/70">Range Boundaries</span>
           </div>
         </div>
       </div>
