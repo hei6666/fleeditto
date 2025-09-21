@@ -161,13 +161,18 @@ export function FeeTierSelector({ selectedDex, selectedFeeTier, onFeeTierSelect,
     const isSelected = selectedFeeTier === feeTier;
     const isHighestTvl = highestTvlTier === feeTier && pool?.exists;
 
+    // Base styles for selected and unselected states
+    const selectedBaseStyle = 'ring-2 ring-offset-2 ring-offset-gray-900 transform scale-105 shadow-2xl';
+    const unselectedBaseStyle = 'opacity-70 hover:opacity-90 hover:scale-[1.02]';
+
     if (!pool) {
       // Loading or no data
       return {
         className: isSelected
-          ? 'bg-gradient-to-br from-teal-500/20 to-cyan-500/20 border border-teal-400/50 shadow-lg shadow-teal-500/25'
-          : 'bg-white/5 border border-white/10 hover:bg-white/10 hover:border-teal-400/30',
-        textColor: isSelected ? 'text-teal-300' : 'text-white'
+          ? `bg-gradient-to-br from-teal-500/30 to-cyan-500/30 border-2 border-teal-400 ring-teal-400 ${selectedBaseStyle}`
+          : `bg-white/5 border border-white/10 hover:bg-white/10 hover:border-teal-400/30 ${unselectedBaseStyle}`,
+        textColor: isSelected ? 'text-white' : 'text-white/70',
+        badgeType: isSelected ? 'selected' : null
       };
     }
 
@@ -175,9 +180,10 @@ export function FeeTierSelector({ selectedDex, selectedFeeTier, onFeeTierSelect,
       // Pool doesn't exist
       return {
         className: isSelected
-          ? 'bg-gradient-to-br from-red-500/20 to-red-400/20 border border-red-400/50 shadow-lg shadow-red-500/25'
-          : 'bg-red-500/10 border border-red-400/30 hover:bg-red-500/20 opacity-60',
-        textColor: isSelected ? 'text-red-300' : 'text-red-400'
+          ? `bg-gradient-to-br from-red-500/30 to-red-400/30 border-2 border-red-400 ring-red-400 ${selectedBaseStyle}`
+          : `bg-red-500/10 border border-red-400/30 hover:bg-red-500/20 ${unselectedBaseStyle}`,
+        textColor: isSelected ? 'text-white' : 'text-red-400/70',
+        badgeType: isSelected ? 'no-pool' : null
       };
     }
 
@@ -185,24 +191,54 @@ export function FeeTierSelector({ selectedDex, selectedFeeTier, onFeeTierSelect,
       // Highest TVL pool
       return {
         className: isSelected
-          ? 'bg-gradient-to-br from-green-500/20 to-emerald-500/20 border border-green-400/50 shadow-lg shadow-green-500/25'
-          : 'bg-green-500/15 border border-green-400/40 hover:bg-green-500/25 hover:border-green-400/60',
-        textColor: isSelected ? 'text-green-300' : 'text-green-400'
+          ? `bg-gradient-to-br from-green-500/30 to-emerald-500/30 border-2 border-green-400 ring-green-400 ${selectedBaseStyle}`
+          : `bg-green-500/15 border border-green-400/40 hover:bg-green-500/25 hover:border-green-400/60 ${unselectedBaseStyle}`,
+        textColor: isSelected ? 'text-white' : 'text-green-400/70',
+        badgeType: isSelected ? 'best-tvl' : null
       };
     }
 
     // Pool exists but not highest TVL
     return {
       className: isSelected
-        ? 'bg-gradient-to-br from-teal-500/20 to-cyan-500/20 border border-teal-400/50 shadow-lg shadow-teal-500/25'
-        : 'bg-blue-500/10 border border-blue-400/30 hover:bg-blue-500/20 hover:border-blue-400/50',
-      textColor: isSelected ? 'text-teal-300' : 'text-blue-300'
+        ? `bg-gradient-to-br from-teal-500/30 to-cyan-500/30 border-2 border-teal-400 ring-teal-400 ${selectedBaseStyle}`
+        : `bg-blue-500/10 border border-blue-400/30 hover:bg-blue-500/20 hover:border-blue-400/50 ${unselectedBaseStyle}`,
+      textColor: isSelected ? 'text-white' : 'text-blue-300/70',
+      badgeType: isSelected ? 'selected' : null
     };
+  };
+
+  // Render badge based on selection and pool status
+  const renderBadge = (badgeType: string | null) => {
+    if (!badgeType) return null;
+
+    switch (badgeType) {
+      case 'best-tvl':
+        return (
+          <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center shadow-lg animate-pulse">
+            <TrendingUp className="w-3.5 h-3.5 text-white" />
+          </div>
+        );
+      case 'no-pool':
+        return (
+          <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-r from-red-500 to-red-400 rounded-full flex items-center justify-center shadow-lg">
+            <span className="text-white text-xs font-bold">!</span>
+          </div>
+        );
+      case 'selected':
+        return (
+          <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-r from-teal-500 to-cyan-500 rounded-full flex items-center justify-center shadow-lg">
+            <CheckCircle className="w-3.5 h-3.5 text-white" />
+          </div>
+        );
+      default:
+        return null;
+    }
   };
 
   // TICK_SPACING_VEC mapping: [1, 10, 60, 200, 20, 50]
   // Index to fee percentage mapping
-  
+
 
   const formatFeeTier = (feeTierIndex: number) => {
     const percentage = getFeeTierPercentageFromIndex(feeTierIndex);
@@ -254,52 +290,53 @@ export function FeeTierSelector({ selectedDex, selectedFeeTier, onFeeTierSelect,
         {supportedFeeTiers.map((feeTier) => {
           const poolStatus = getPoolStatusStyle(feeTier);
           const pool = poolData[feeTier];
-          const isHighestTvl = highestTvlTier === feeTier && pool?.exists;
+          const isSelected = selectedFeeTier === feeTier;
 
           return (
             <motion.button
               key={feeTier}
               onClick={() => onFeeTierSelect(feeTier)}
-              className={`p-3 rounded-xl backdrop-filter backdrop-blur-xl transition-all duration-300 ease-in-out relative ${poolStatus.className}`}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              className={`p-4 rounded-xl backdrop-filter backdrop-blur-xl transition-all duration-300 ease-in-out relative ${poolStatus.className}`}
+              whileHover={{ scale: isSelected ? 1.05 : 1.02 }}
+              whileTap={{ scale: isSelected ? 1.02 : 0.98 }}
               transition={{ type: "spring", stiffness: 400, damping: 20 }}
               disabled={loading}
             >
-              {/* Highest TVL indicator */}
-              {isHighestTvl && (
-                <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                  <TrendingUp className="w-3 h-3 text-white" />
-                </div>
+              {/* Dynamic badge based on selection and pool status */}
+              {renderBadge(poolStatus.badgeType)}
+
+              {/* Selected indicator overlay */}
+              {isSelected && (
+                <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
               )}
 
-              {/* Pool exists indicator */}
-              {pool?.exists && (
-                <div className="absolute top-2 right-2 w-3 h-3">
-                  <CheckCircle className="w-3 h-3 text-green-400" />
-                </div>
-              )}
-
-              <div className="text-center">
-                <div className={`text-base sm:text-lg font-bold transition-all duration-300 ${poolStatus.textColor}`}>
+              <div className="text-center relative z-10">
+                <div className={`text-lg sm:text-xl font-bold transition-all duration-300 ${poolStatus.textColor} ${isSelected ? 'text-shadow-sm' : ''}`}>
                   {formatFeeTier(feeTier)}
                 </div>
-                <div className="text-xs text-white/50 mt-1">
+                <div className={`text-xs mt-1 transition-all duration-300 ${isSelected ? 'text-white/80' : 'text-white/50'}`}>
                   {getFeeTierDescription(feeTier)}
                 </div>
 
                 {/* TVL Information */}
                 {tokenX && tokenY && (
-                  <div className="mt-2 pt-2 border-t border-white/10">
+                  <div className={`mt-3 pt-2 border-t transition-all duration-300 ${isSelected ? 'border-white/30' : 'border-white/10'}`}>
                     {loading ? (
                       <div className="text-xs text-white/40">Loading...</div>
                     ) : pool ? (
-                      <div className={`text-xs font-medium ${poolStatus.textColor}`}>
+                      <div className={`text-xs font-medium transition-all duration-300 ${poolStatus.textColor}`}>
                         {formatTVL(pool.tvl)}
                       </div>
                     ) : (
                       <div className="text-xs text-white/40">-</div>
                     )}
+                  </div>
+                )}
+
+                {/* Selected label */}
+                {isSelected && (
+                  <div className="mt-2 text-xs font-semibold text-white/90 bg-white/20 rounded-full px-2 py-1">
+                    SELECTED
                   </div>
                 )}
               </div>
